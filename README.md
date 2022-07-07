@@ -1,4 +1,4 @@
-## local_storage
+## hive_local_storage
 
 <hr>
 
@@ -11,7 +11,7 @@ A utility package to storage user session and cache values in hive box
 
 ```yaml
 dependencies:
-  local_storage: latest
+  hive_local_storage: latest
 ```
 
 if you want to use custom class for hive you need to add hive_generator in your dev_dependencies
@@ -23,6 +23,10 @@ dev_dependencies:
 ```
 
 ### Usage
+
+```dart
+  import 'package:hive_local_storage/hive_local_storage.dart';
+```
 
 Write data
 ```dart

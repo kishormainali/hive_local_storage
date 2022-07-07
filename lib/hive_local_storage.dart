@@ -1,8 +1,9 @@
-library local_storage;
+/// Utility wrapper for hive
 
-// export hive flutter
+library hive_local_storage;
+
 export 'package:hive/hive.dart';
 export 'package:hive_flutter/hive_flutter.dart';
 
-export 'src/local_storage.dart';
+export 'src/hive_local_storage.dart';
 export 'src/session.dart';

@@ -9,9 +9,9 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'session.dart';
 import 'storage_keys.dart';
 
-/// {@template LocalStorage}
+/// {@template local_storage}
 /// A wrapper class for session and cache box uses [Hive]
-/// {@end_template}
+/// {@endtemplate}
 class LocalStorage {
   ///{@macro local_storage}
   LocalStorage._();
@@ -81,7 +81,7 @@ class LocalStorage {
   }
 
   /// clearSession
-  /// removes the [Session] value from [_encryptedBox]
+  /// removes the [Session] value from [Box]
   FutureOr<void> clearSession() async {
     return _encryptedBox.delete(StorageKeys.sessionKey);
   }
