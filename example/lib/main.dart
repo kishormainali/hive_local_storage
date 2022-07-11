@@ -54,7 +54,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
   void _incrementCounter() async {
     _counter++;
-    await _localStorage.save('count', _counter);
+    await _localStorage.put(key: 'count', value: _counter);
 
     setState(() {});
   }
@@ -67,7 +67,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
   void _init() async {
     _localStorage = await LocalStorage.getInstance();
-    final count = await _localStorage.get<int>('count');
+    final count = _localStorage.get<int>(key: 'count');
     if (count != null) {
       _counter = count;
     } else {

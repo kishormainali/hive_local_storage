@@ -20,6 +20,9 @@ class LocalStorage {
   static late FlutterSecureStorage _storage;
 
   /// [Box] session box
+  static late Box<Session> _sessionBox;
+
+  /// [Box] encrypted box
   static late Box<dynamic> _encryptedBox;
 
   /// [Box] _cacheBox
@@ -34,11 +37,18 @@ class LocalStorage {
     WidgetsFlutterBinding.ensureInitialized();
     Hive.registerAdapter(SessionAdapter());
     _storage = const FlutterSecureStorage(
-        aOptions: AndroidOptions(encryptedSharedPreferences: true));
+      aOptions: AndroidOptions(encryptedSharedPreferences: true),
+    );
     final encryptionCipher = await _encryptionKey;
     await Hive.initFlutter();
-    _encryptedBox = await Hive.openBox<dynamic>(StorageKeys.sessionKey,
-        encryptionCipher: encryptionCipher);
+    _sessionBox = await Hive.openBox<Session>(
+      StorageKeys.sessionKey,
+      encryptionCipher: encryptionCipher,
+    );
+    _encryptedBox = await Hive.openBox<dynamic>(
+      StorageKeys.encryptedBoxKey,
+      encryptionCipher: encryptionCipher,
+    );
     _cacheBox = await Hive.openBox<dynamic>(StorageKeys.cacheKey);
     return LocalStorage._();
   }
@@ -50,8 +60,7 @@ class LocalStorage {
     var keyString = await _storage.read(key: StorageKeys.encryptionKey);
     if (keyString == null) {
       final key = Hive.generateSecureKey();
-      await _storage.write(
-          key: StorageKeys.encryptionKey, value: base64UrlEncode(key));
+      await _storage.write(key: StorageKeys.encryptionKey, value: base64UrlEncode(key));
       encryptionKey = Uint8List.fromList(key);
     } else {
       encryptionKey = base64Url.decode(keyString);
@@ -61,76 +70,109 @@ class LocalStorage {
 
   /// getSession
   /// get [Session] from the box
-  Future<Session?> getSession() async {
-    return _encryptedBox.get(StorageKeys.sessionKey) as Session?;
+  Session? getSession() {
+    return _sessionBox.getAt(0);
   }
 
   /// hasSession
   /// checks whether [Session] is not null or [Session.accessToken] is not empty
-  FutureOr<bool> hasSession() async {
-    final session = await getSession();
+  bool hasSession() {
+    final session = getSession();
     return session != null && session.accessToken.isNotEmpty;
   }
 
   /// saveSession
   /// clears the previously stored value and adds new [Session]
-  FutureOr<void> saveSession(Session session) async {
-    await _encryptedBox.delete(StorageKeys.sessionKey);
-    await _encryptedBox.put(StorageKeys.sessionKey, session);
+  Future<void> saveSession(Session session) async {
+    _sessionBox
+      ..clear()
+      ..add(session);
     return Future.value();
   }
 
   /// clearSession
   /// removes the [Session] value from [Box]
-  FutureOr<void> clearSession() async {
-    return _encryptedBox.delete(StorageKeys.sessionKey);
-  }
-
-  /// getEncrypted
-  /// gets the value from encrypted box associated with [key]
-  FutureOr<T?> getEncrypted<T>(String key) async {
-    return _encryptedBox.get(key) as T?;
-  }
-
-  /// saveEncrypted
-  /// stores the value in encrypted box
-  FutureOr<void> saveEncrypted<T>(String key, T value) async {
-    return _encryptedBox.put(key, value);
-  }
-
-  /// removeEncrypted
-  /// deletes the value from encrypted box
-  FutureOr<void> removeEncrypted(String key) async {
-    return _encryptedBox.delete(key);
-  }
-
-  /// clearEncrypted
-  /// clears the encrypted box
-  FutureOr<int> clearEncrypted() async {
-    return _encryptedBox.clear();
+  Future<void> clearSession() async {
+    _sessionBox.clear();
+    return Future.value();
   }
 
   /// get
   /// get value from box associated with [key]
-  Future<T?> get<T>(String key) async {
-    return _cacheBox.get(key) as T?;
+  T? get<T>({
+    required String key,
+    T? defaultValue,
+    bool useEncryption = false,
+  }) {
+    if (useEncryption) {
+      return _encryptedBox.get(key, defaultValue: defaultValue).cast<T?>();
+    } else {
+      return _cacheBox.get(key, defaultValue: defaultValue).cast<T?>();
+    }
   }
 
   /// save
-  /// puts [value] in box with [key]
-  FutureOr<void> save<T>(String key, T value) async {
-    return _cacheBox.put(key, value);
+  /// puts value in box with [key]
+  Future<void> put<T>({
+    required String key,
+    required T value,
+    bool useEncryption = false,
+  }) async {
+    if (useEncryption) {
+      return _encryptedBox.put(key, value);
+    } else {
+      return _cacheBox.put(key, value);
+    }
+  }
+
+  /// save
+  /// puts value in box with [key]
+  Future<void> putAll({
+    required Map<String, dynamic> entries,
+    bool useEncryption = false,
+  }) async {
+    if (useEncryption) {
+      return _encryptedBox.putAll(entries);
+    } else {
+      return _cacheBox.putAll(entries);
+    }
   }
 
   /// remove
   /// removes value from box registered with [key]
-  FutureOr<void> remove(String key) async {
-    return _cacheBox.delete(key);
+  Future<void> remove({
+    required String key,
+    bool useEncryption = false,
+  }) async {
+    if (useEncryption) {
+      return _encryptedBox.delete(key);
+    } else {
+      return _cacheBox.delete(key);
+    }
   }
 
   /// clear
   /// clear all values from box
-  FutureOr<int> clear() async {
-    return _cacheBox.clear();
+  Future<int> clear({bool useEncryption = false}) async {
+    if (useEncryption) {
+      return _encryptedBox.clear();
+    } else {
+      return _cacheBox.clear();
+    }
   }
+
+  /// close all the opened box
+  Future<void> closeAll() async {
+    await Future.wait([
+      _sessionBox.close(),
+      _encryptedBox.close(),
+      _cacheBox.close(),
+    ]);
+  }
+
+  /// convert box to map
+  Map<String, Map<String, dynamic>?> toCacheMap() => Map.unmodifiable(_cacheBox.toMap());
+
+  /// convert box to map
+  Map<String, Map<String, dynamic>?> toEncryptedMap() => Map.unmodifiable(_encryptedBox.toMap());
 }

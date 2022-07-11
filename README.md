@@ -34,10 +34,16 @@ Write data
   final localStorage = await LocalStorage.getInstance();
   
   // to store value in normal box
-  await localStorage.saveCache<int>('count',0);
+  await localStorage.put<int>(key:'count',value:0);
   
   // to store value in encrypted box
-  await localStorage.saveEncrypted<String>('key','some important key');
+  await localStorage.put<String>(key:'key',value:'some important key',useEncryption:true);
+
+  // write multiple values
+  await localStorage.putAll(Map<String,dynamic> entries);
+  
+  // write multiple values in encrypted box
+  await localStorage.putAll(entries:{},useEncryption:true);
   
   // to store use session
   final session = Session()
@@ -55,10 +61,10 @@ Read data
   final localStorage = await LocalStorage.getInstance();
   
   // to get value from normal box
-  final count  = await localStorage.getCache<int>('count');
+  final count  = await localStorage.get<int>(key:'count');
   
   // to get value from encrypted box
-  final key = await localStorage.getEncrypted<String>('key');
+  final key = await localStorage.get<String>(key:'key',useEncryption:true);
   
   // to get session
   final Session? session = await localStorage.getSession();
@@ -74,16 +80,17 @@ Delete data
   final localStorage = await LocalStorage.getInstance();
   
   // remove value from normal box
-   await localStorage.remove('count');
+   await localStorage.remove(key:'count');
    
    // remove all from normal box
    await localStorage.clear();
   
   // remove value from encrypted box
-  await localStorage.removeEncrypted('key');
+  await localStorage.remove(key:'key',useEncryption:true);
+  
   
   //remove all values form encrypted box
-  await localStorage.clearEncrypted();
+  await localStorage.clear(useEncryption:true);
   
   // remove session
   await localStorage.clearSession();
