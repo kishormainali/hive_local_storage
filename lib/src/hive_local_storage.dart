@@ -33,8 +33,13 @@ class LocalStorage {
   /// register the adapters
   /// open the boxes
   /// returns [LocalStorage] instance
-  static Future<LocalStorage> getInstance() async {
+  static Future<LocalStorage> getInstance([List<TypeAdapter<HiveObject>>? adapters]) async {
     WidgetsFlutterBinding.ensureInitialized();
+    if (adapters != null && adapters.isNotEmpty) {
+      for (final adapter in adapters) {
+        Hive.registerAdapter(adapter);
+      }
+    }
     Hive.registerAdapter(SessionAdapter());
     _storage = const FlutterSecureStorage(
       aOptions: AndroidOptions(encryptedSharedPreferences: true),
@@ -60,8 +65,7 @@ class LocalStorage {
     var keyString = await _storage.read(key: StorageKeys.encryptionKey);
     if (keyString == null) {
       final key = Hive.generateSecureKey();
-      await _storage.write(
-          key: StorageKeys.encryptionKey, value: base64UrlEncode(key));
+      await _storage.write(key: StorageKeys.encryptionKey, value: base64UrlEncode(key));
       encryptionKey = Uint8List.fromList(key);
     } else {
       encryptionKey = base64Url.decode(keyString);
@@ -69,26 +73,35 @@ class LocalStorage {
     return HiveAesCipher(encryptionKey);
   }
 
-  /// getSession
+  /// `getSession`
   /// get [Session] from the box
   Session? getSession() {
     return _sessionBox.getAt(0);
   }
 
-  /// hasSession
-  /// checks whether [Session] is not null or [Session.accessToken] is not empty
-  bool hasSession() {
-    final session = getSession();
-    return session != null && session.accessToken.isNotEmpty;
+  /// `hasSession`
+  /// checks whether `Box<Session>` is not empty or [Session] is not null
+  bool get hasSession {
+    return _sessionBox.isNotEmpty && _sessionBox.getAt(0) != null;
   }
 
-  /// saveSession
+  /// `saveSession`
   /// clears the previously stored value and adds new [Session]
   Future<void> saveSession(Session session) async {
     _sessionBox
       ..clear()
       ..add(session);
     return Future.value();
+  }
+
+  /// `isTokenExpired`
+  /// checks whether token is expired or not
+  bool get isTokenExpired {
+    if (_sessionBox.isEmpty) return true;
+    final session = _sessionBox.getAt(0)!;
+    final expiryDate = DateTime.fromMillisecondsSinceEpoch((session.expiresIn) * 1000);
+    final currentDate = DateTime.now();
+    return currentDate.isAfter(expiryDate);
   }
 
   /// clearSession
@@ -106,9 +119,9 @@ class LocalStorage {
     bool useEncryption = false,
   }) {
     if (useEncryption) {
-      return _encryptedBox.get(key, defaultValue: defaultValue).cast<T?>();
+      return _encryptedBox.get(key, defaultValue: defaultValue);
     } else {
-      return _cacheBox.get(key, defaultValue: defaultValue).cast<T?>();
+      return _cacheBox.get(key, defaultValue: defaultValue);
     }
   }
 
@@ -172,10 +185,8 @@ class LocalStorage {
   }
 
   /// convert box to map
-  Map<String, Map<String, dynamic>?> toCacheMap() =>
-      Map.unmodifiable(_cacheBox.toMap());
+  Map<String, Map<String, dynamic>?> toCacheMap() => Map.unmodifiable(_cacheBox.toMap());
 
   /// convert box to map
-  Map<String, Map<String, dynamic>?> toEncryptedMap() =>
-      Map.unmodifiable(_encryptedBox.toMap());
+  Map<String, Map<String, dynamic>?> toEncryptedMap() => Map.unmodifiable(_encryptedBox.toMap());
 }

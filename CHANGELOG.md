@@ -1,3 +1,10 @@
+## 0.0.6
+
+- Removed unnecessary type cast
+- added isTokenExpired getter to check whether accessToken is expired or not
+- hasSession() method renamed to hasSession getter
+- added support for registering custom type adapters
+
 ## 0.0.5
 
 - Breaking Changes

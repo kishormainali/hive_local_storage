@@ -27,6 +27,13 @@ dev_dependencies:
 ```dart
   import 'package:hive_local_storage/hive_local_storage.dart';
 ```
+### Registering Custom Adapters
+NOTE: avoid using typeId=0 for data classes because typeId=0 is already used by session class.
+
+```dart
+  //  getInstance() method takes list of [TypeAdapter] 
+  final localStorage = await LocalStorage.getInstance([YourAdapter()])
+```
 
 Write data
 ```dart
@@ -67,10 +74,13 @@ Read data
   final key = await localStorage.get<String>(key:'key',useEncryption:true);
   
   // to get session
-  final Session? session = await localStorage.getSession();
+  final Session? session =  localStorage.getSession();
   
   //to check whether session has present or not
-  final hasSession = await localStorage.hasSession();
+  final hasSession =  localStorage.hasSession;
+  
+  //to check whether accessToken is expired or not
+  final isTokenExpired = locaStorage.isTokenExpired;
 
 ```
 
@@ -98,9 +108,11 @@ Delete data
 ```
 
 
+
+
 # TODO:
 
-- [ ] support for TypeAdapters
-- [ ] add Test 
+- [X] support for TypeAdapters
+- [ ] add Test Cases
 
  
