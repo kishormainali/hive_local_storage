@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
+import 'jwt_decoder.dart';
 import 'session.dart';
 import 'storage_keys.dart';
 
@@ -43,6 +44,7 @@ class LocalStorage {
     Hive.registerAdapter(SessionAdapter());
     _storage = const FlutterSecureStorage(
       aOptions: AndroidOptions(encryptedSharedPreferences: true),
+      iOptions: IOSOptions(accessibility: KeychainAccessibility.unlocked),
     );
     final encryptionCipher = await _encryptionKey;
     await Hive.initFlutter();
@@ -76,7 +78,7 @@ class LocalStorage {
   /// `getSession`
   /// get [Session] from the box
   Session? getSession() {
-    return _sessionBox.getAt(0);
+    return _sessionBox.isNotEmpty ? _sessionBox.getAt(0) : null;
   }
 
   /// `hasSession`
@@ -88,9 +90,8 @@ class LocalStorage {
   /// `saveSession`
   /// clears the previously stored value and adds new [Session]
   Future<void> saveSession(Session session) async {
-    _sessionBox
-      ..clear()
-      ..add(session);
+    await _sessionBox.clear();
+    await _sessionBox.add(session);
     return Future.value();
   }
 
@@ -99,9 +100,7 @@ class LocalStorage {
   bool get isTokenExpired {
     if (_sessionBox.isEmpty) return true;
     final session = _sessionBox.getAt(0)!;
-    final expiryDate = DateTime.fromMillisecondsSinceEpoch((session.expiresIn) * 1000);
-    final currentDate = DateTime.now();
-    return currentDate.isAfter(expiryDate);
+    return JwtDecoder.isExpired(session.accessToken);
   }
 
   /// clearSession

@@ -1,3 +1,8 @@
+## 0.0.7
+
+- Bug fixes when getting session
+- added JwtDecoder
+
 ## 0.0.6
 
 - Removed unnecessary type cast

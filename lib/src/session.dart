@@ -7,4 +7,9 @@ class Session extends HiveObject {
   late String accessToken;
   late String refreshToken;
   late int expiresIn;
+
+  @override
+  String toString() {
+    return 'Session{accessToken: $accessToken, refreshToken: $refreshToken, expiresIn: $expiresIn}';
+  }
 }
