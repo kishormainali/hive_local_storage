@@ -34,7 +34,8 @@ class LocalStorage {
   /// register the adapters
   /// open the boxes
   /// returns [LocalStorage] instance
-  static Future<LocalStorage> getInstance([List<TypeAdapter<HiveObject>>? adapters]) async {
+  static Future<LocalStorage> getInstance(
+      [List<TypeAdapter<HiveObject>>? adapters]) async {
     WidgetsFlutterBinding.ensureInitialized();
     if (adapters != null && adapters.isNotEmpty) {
       for (final adapter in adapters) {
@@ -67,7 +68,8 @@ class LocalStorage {
     var keyString = await _storage.read(key: StorageKeys.encryptionKey);
     if (keyString == null) {
       final key = Hive.generateSecureKey();
-      await _storage.write(key: StorageKeys.encryptionKey, value: base64UrlEncode(key));
+      await _storage.write(
+          key: StorageKeys.encryptionKey, value: base64UrlEncode(key));
       encryptionKey = Uint8List.fromList(key);
     } else {
       encryptionKey = base64Url.decode(keyString);
@@ -184,8 +186,10 @@ class LocalStorage {
   }
 
   /// convert box to map
-  Map<String, Map<String, dynamic>?> toCacheMap() => Map.unmodifiable(_cacheBox.toMap());
+  Map<String, Map<String, dynamic>?> toCacheMap() =>
+      Map.unmodifiable(_cacheBox.toMap());
 
   /// convert box to map
-  Map<String, Map<String, dynamic>?> toEncryptedMap() => Map.unmodifiable(_encryptedBox.toMap());
+  Map<String, Map<String, dynamic>?> toEncryptedMap() =>
+      Map.unmodifiable(_encryptedBox.toMap());
 }

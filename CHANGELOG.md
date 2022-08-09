@@ -1,3 +1,7 @@
+## 0.0.8
+
+- added HiveField annotation in session object's fields
+
 ## 0.0.7
 
 - Bug fixes when getting session
