@@ -17,6 +17,44 @@ class LocalStorage {
   ///{@macro local_storage}
   LocalStorage._();
 
+  /// static instance
+  static LocalStorage get _instance => LocalStorage._();
+
+  /// factory constructors are used for Riverpod only
+  /// do not user for normal purpose
+  /// Example:
+  ///
+  /// ```dart
+  /// final localStorageProvider = Provider<LocalStorage>((ref)=>LocalStorage());
+  /// ```
+  ///
+  /// in main function
+  ///
+  ///```dart
+  /// void main() {
+  ///   runZonedGuarded(
+  ///     () async {
+  ///       final localStorage = await LocalStorage.getInstance();
+  ///       runApp(
+  ///         ProviderScope(
+  ///           overrides: [
+  ///             localStorageProvider.overrideWithValue(localStorage),
+  ///           ],
+  ///           child: App(),
+  ///         ),
+  ///       );
+  ///     },
+  ///     (e, _) => throw e,
+  ///   );
+  /// }
+  /// ```
+
+  ///
+  ///
+  factory LocalStorage() {
+    return _instance;
+  }
+
   /// [FlutterSecureStorage] storage for storing encryption key
   static late FlutterSecureStorage _storage;
 
@@ -58,7 +96,7 @@ class LocalStorage {
       encryptionCipher: encryptionCipher,
     );
     _cacheBox = await Hive.openBox<dynamic>(StorageKeys.cacheKey);
-    return LocalStorage._();
+    return _instance;
   }
 
   /// HiveAesCipher encryptionKey

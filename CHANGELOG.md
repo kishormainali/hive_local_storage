@@ -1,3 +1,8 @@
+## 0.0.9
+
+- added factory constructor to make compatible with riverpod
+
+
 ## 0.0.8
 
 - added HiveField annotation in session object's fields

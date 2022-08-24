@@ -35,6 +35,37 @@ NOTE: avoid using typeId=0 for data classes because typeId=0 is already used by 
   final localStorage = await LocalStorage.getInstance([YourAdapter()])
 ```
 
+
+
+#### To use with Riverpod
+
+```dart
+/// create provider
+final localStorageProvider = Provider<LocalStorage>((ref)=>LocalStorage());
+
+/// in main function
+
+void main() {
+  runZonedGuarded(
+    () async {
+      final localStorage = await LocalStorage.getInstance();
+      runApp(
+        ProviderScope(
+          overrides: [
+            localStorageProvider.overrideWithValue(localStorage),
+          ],
+          child: App(),
+        ),
+      );
+    },
+    (e, _) => throw e,
+  );
+}
+
+
+```
+
+
 Write data
 ```dart
    /// initialize local_storage
