@@ -6,5 +6,4 @@ export 'package:hive/hive.dart';
 export 'package:hive_flutter/hive_flutter.dart';
 
 export 'src/hive_local_storage.dart';
-export 'src/jwt_decoder.dart';
 export 'src/session.dart';

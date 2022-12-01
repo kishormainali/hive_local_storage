@@ -1,7 +1,13 @@
+## 1.0.0
+  [BREAKING CHANGES]
+- added support for opening custom boxes
+- use encrypted box by default
+- added support for adding list (encode/decode data)
+- removed expiresIn from Session [Node: uses JWTDecoder to decode and get expiry time]
+
 ## 0.0.9
 
 - added factory constructor to make compatible with riverpod
-
 
 ## 0.0.8
 

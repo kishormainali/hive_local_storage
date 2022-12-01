@@ -8,11 +8,9 @@ class Session extends HiveObject {
   late String accessToken;
   @HiveField(1)
   late String refreshToken;
-  @HiveField(2)
-  late int expiresIn;
 
   @override
   String toString() {
-    return 'Session{accessToken: $accessToken, refreshToken: $refreshToken, expiresIn: $expiresIn}';
+    return 'Session{accessToken: $accessToken, refreshToken: $refreshToken}';
   }
 }

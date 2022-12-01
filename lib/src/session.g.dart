@@ -18,20 +18,17 @@ class SessionAdapter extends TypeAdapter<Session> {
     };
     return Session()
       ..accessToken = fields[0] as String
-      ..refreshToken = fields[1] as String
-      ..expiresIn = fields[2] as int;
+      ..refreshToken = fields[1] as String;
   }
 
   @override
   void write(BinaryWriter writer, Session obj) {
     writer
-      ..writeByte(3)
+      ..writeByte(2)
       ..writeByte(0)
       ..write(obj.accessToken)
       ..writeByte(1)
-      ..write(obj.refreshToken)
-      ..writeByte(2)
-      ..write(obj.expiresIn);
+      ..write(obj.refreshToken);
   }
 
   @override
