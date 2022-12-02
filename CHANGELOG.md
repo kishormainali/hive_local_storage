@@ -1,3 +1,7 @@
+## 1.0.0+1
+
+- updated documentation
+
 ## 1.0.0
   [BREAKING CHANGES]
 - added support for opening custom boxes

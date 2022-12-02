@@ -18,7 +18,7 @@ class SessionAdapter extends TypeAdapter<Session> {
     };
     return Session()
       ..accessToken = fields[0] as String
-      ..refreshToken = fields[1] as String;
+      ..refreshToken = fields[1] as String?;
   }
 
   @override

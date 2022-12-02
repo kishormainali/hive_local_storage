@@ -1,3 +1,4 @@
+
 ## hive_local_storage
 
 <hr>
@@ -79,7 +80,7 @@ to use this method you need to register adapter for hive objects in initializati
     }
 ```
 
-### delete data from Custom Box
+### delete data from Custom Box : [ Experimental ]
 
 ``` dart 
    final localStorage = await LocalStorage.getInstance();
@@ -88,7 +89,7 @@ to use this method you need to register adapter for hive objects in initializati
     }
 ```
 
-### update data to Custom Box
+### update data to Custom Box : [ Experimental ]
 
 ``` dart 
    final localStorage = await LocalStorage.getInstance();
@@ -135,15 +136,17 @@ final localStorage = await LocalStorage.getInstance();
 await localStorage.put<int>(key:'count',value:0);
 
 
-// write multiple values
+// write multiple values in cache box
 await localStorage.putAll(Map<String, dynamic> entries);
+
+// put list of data in cache box
+await localStorage.putList<Model>(key:'KeyName',value:<Model>[]);
 
 
 // to store use session
 final session = Session()
   ..accessToken = 'accessToken'
-  ..refreshToken = 'refreshToken'
-  ..expiresIn = 1231232;
+  ..refreshToken = 'refreshToken';
   
 await localStorage.saveSession(session);
 
@@ -155,8 +158,11 @@ Read data
    /// initialize local_storage
 final localStorage = await LocalStorage.getInstance();
 
-// to get value from normal box
-final count = await localStorage.get<int>(key:'count');
+// to get value from cache box
+final count =  localStorage.get<int>(key:'count');
+
+// read list data from cache box
+final listData = localStorage.getList<Model>(key:'Your KeyName');
 
 // to get session
 final Session? session = localStorage.getSession();
@@ -175,10 +181,10 @@ Delete data
    /// initialize local_storage
 final localStorage = await LocalStorage.getInstance();
 
-// remove value from normal box
+// remove value from cache box
 await localStorage.remove(key:'count');
 
-// remove all from normal box
+// remove all from cache box
 await localStorage.clear();
 
 // remove session
@@ -186,9 +192,3 @@ await localStorage.clearSession();
 
 ```
 
-# TODO:
-
-- [X] support for TypeAdapters
-- [ ] add Test Cases
-
- 

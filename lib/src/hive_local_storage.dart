@@ -105,6 +105,7 @@ class LocalStorage {
     return HiveAesCipher(encryptionKey);
   }
 
+  /// `openCustomBox`
   /// open custom box
   Future<void> openCustomBox<T extends HiveObject>({required String boxName, required int typeId}) async {
     if (!Hive.isAdapterRegistered(typeId)) {
@@ -200,7 +201,6 @@ class LocalStorage {
   Future<void> saveSession(Session session) async {
     await _sessionBox.clear();
     await _sessionBox.add(session);
-    return Future.value();
   }
 
   /// `isTokenExpired`
@@ -214,8 +214,7 @@ class LocalStorage {
   /// clearSession
   /// removes the [Session] value from [Box]
   Future<void> clearSession() async {
-    _sessionBox.clear();
-    return Future.value();
+    await _sessionBox.clear();
   }
 
   /// get
@@ -227,15 +226,16 @@ class LocalStorage {
     return _cacheBox.get(key, defaultValue: defaultValue);
   }
 
+  /// getList
   /// get list data
-  List<T> getList<T>({required String key}) {
+  List<T> getList<T>({required String key, List<T> defaultValue = const []}) {
     try {
       final String encodedData = _cacheBox.get(key, defaultValue: '');
-      if (encodedData.isEmpty) return [];
+      if (encodedData.isEmpty) return defaultValue;
       final decodedData = jsonDecode(_cacheBox.get(key));
       return List<T>.from(jsonDecode(decodedData));
     } catch (_) {
-      return [];
+      return defaultValue;
     }
   }
 
