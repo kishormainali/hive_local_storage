@@ -67,24 +67,26 @@ class LocalStorage {
 
   /// initialize the dependencies
   /// register the adapters
+  /// ```
+  /// final instance = LocalStorage.getInstance(registerAdapters:(){
+  ///   Hive..registerAdapter(adapter1)
+  ///       ..registerAdapter(adapter2);
+  /// });
+  /// ```
   /// open the boxes
   /// returns [LocalStorage] instance
   static Future<LocalStorage> getInstance({
-    List<TypeAdapter<HiveObject>>? adapters,
+    void Function()? registerAdapters,
   }) async {
     WidgetsFlutterBinding.ensureInitialized();
-    if (adapters != null && adapters.isNotEmpty) {
-      for (final adapter in adapters) {
-        Hive.registerAdapter(adapter);
-      }
-    }
-    Hive.registerAdapter(SessionAdapter());
     _storage = const FlutterSecureStorage(
       aOptions: AndroidOptions(encryptedSharedPreferences: true),
       iOptions: IOSOptions(accessibility: KeychainAccessibility.unlocked),
     );
     final encryptionCipher = await _encryptionKey;
     await Hive.initFlutter();
+    Hive.registerAdapter(SessionAdapter());
+    registerAdapters?.call();
     _sessionBox = await Hive.openBox<Session>(sessionKey);
     _cacheBox = await Hive.openBox(cacheKey, encryptionCipher: encryptionCipher);
     return LocalStorage._();

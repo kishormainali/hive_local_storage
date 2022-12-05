@@ -1,5 +1,13 @@
+## 1.0.1
+
+[BREAKING CHANGES]
+
+- refactored adapter registration logic
+
 ## 1.0.0
-  [BREAKING CHANGES]
+
+[BREAKING CHANGES]
+
 - added support for opening custom boxes
 - use encrypted box by default
 - added support for adding list (encode/decode data)

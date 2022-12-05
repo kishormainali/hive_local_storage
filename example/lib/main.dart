@@ -1,7 +1,11 @@
+import 'package:example/adapters/contact.dart';
+import 'package:example/adapters/user.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_local_storage/hive_local_storage.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
   runApp(const MyApp());
 }
 
@@ -53,29 +57,32 @@ class _MyHomePageState extends State<MyHomePage> {
   late LocalStorage _localStorage;
 
   void _incrementCounter() async {
-    _counter++;
-    await _localStorage.put(key: 'count', value: _counter);
-    setState(() {});
+    // final tUser = User()
+    //   ..name = 'Test User'
+    //   ..address = "test address"
+    //   ..users = [];
+    // final user = User()
+    //   ..name = 'Test User'
+    //   ..address = "test address"
+    //   ..users = [tUser];
+    // final contact = Contact()..name = 'Test Contact';
+    // await _localStorage.put(key: 'user', value: user);
+    // await _localStorage.put(key: 'contact', value: contact);
+    // setState(() {});
   }
 
   @override
   void initState() {
-    _init();
+    // _init();
     super.initState();
   }
 
   void _init() async {
-    _localStorage = await LocalStorage.getInstance();
-
-    final count = _localStorage.get<int>(key: 'count');
-    if (count != null) {
-      _counter = count;
-    } else {
-      _counter = 0;
-    }
-    if (!mounted) return;
-
-    setState(() {});
+    _localStorage = await LocalStorage.getInstance(registerAdapters: () {
+      Hive
+        ..registerAdapter(UserAdapter())
+        ..registerAdapter(ContactAdapter());
+    });
   }
 
   @override

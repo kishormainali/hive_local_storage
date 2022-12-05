@@ -295,7 +295,7 @@ packages:
       path: ".."
       relative: true
     source: path
-    version: "1.0.0"
+    version: "1.0.1"
   http_multi_server:
     dependency: transitive
     description:
