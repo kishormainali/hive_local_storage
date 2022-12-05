@@ -7,7 +7,7 @@ class Session extends HiveObject {
   @HiveField(0)
   late String accessToken;
   @HiveField(1)
-  late String refreshToken;
+  String? refreshToken;
 
   @override
   String toString() {

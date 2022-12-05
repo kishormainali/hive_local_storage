@@ -4,6 +4,10 @@
 
 - refactored adapter registration logic
 
+## 1.0.0+1
+
+- updated documentation
+
 ## 1.0.0
 
 [BREAKING CHANGES]
