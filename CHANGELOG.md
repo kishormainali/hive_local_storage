@@ -1,3 +1,7 @@
+## 1.0.2
+
+- updated _flutter_secure_storage_ version
+
 ## 1.0.1
 
 [BREAKING CHANGES]

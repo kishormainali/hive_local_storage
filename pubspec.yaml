@@ -1,6 +1,6 @@
 name: hive_local_storage
 description: A cache helper which uses hive and flutter_secure_storage to make ease to store session and encrypted data
-version: 1.0.1
+version: 1.0.2
 homepage: https://github.com/kishor98100/local_storage
 repository: https://github.com/kishor98100/local_storage
 
@@ -14,7 +14,7 @@ dependencies:
 
   hive: ^2.2.3
   hive_flutter: ^1.1.0
-  flutter_secure_storage: ^6.1.0
+  flutter_secure_storage: ^7.0.1
   collection: ^1.16.0
 
 
@@ -24,9 +24,5 @@ dev_dependencies:
   flutter_lints: ^2.0.1
   hive_generator: ^2.0.0
   build_runner: any
-
-
-
-
 
 flutter:

@@ -57,23 +57,14 @@ class _MyHomePageState extends State<MyHomePage> {
   late LocalStorage _localStorage;
 
   void _incrementCounter() async {
-    // final tUser = User()
-    //   ..name = 'Test User'
-    //   ..address = "test address"
-    //   ..users = [];
-    // final user = User()
-    //   ..name = 'Test User'
-    //   ..address = "test address"
-    //   ..users = [tUser];
-    // final contact = Contact()..name = 'Test Contact';
-    // await _localStorage.put(key: 'user', value: user);
-    // await _localStorage.put(key: 'contact', value: contact);
-    // setState(() {});
+    _counter++;
+    await _localStorage.put(key: 'counter', value: _counter);
+    setState(() {});
   }
 
   @override
   void initState() {
-    // _init();
+    _init();
     super.initState();
   }
 
@@ -83,16 +74,12 @@ class _MyHomePageState extends State<MyHomePage> {
         ..registerAdapter(UserAdapter())
         ..registerAdapter(ContactAdapter());
     });
+    _counter = _localStorage.get<int>(key: 'counter', defaultValue: 0)!;
+    setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
       appBar: AppBar(
         // Here we take the value from the MyHomePage object that was created by
