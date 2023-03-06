@@ -1,3 +1,9 @@
+## 1.0.3
+- added onSessionChange event for session box
+- added synchronization
+- updated min dart sdk version to 2.18
+
+
 ## 1.0.2
 
 - updated _flutter_secure_storage_ version

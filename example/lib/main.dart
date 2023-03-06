@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:example/adapters/contact.dart';
 import 'package:example/adapters/user.dart';
 import 'package:flutter/material.dart';
@@ -56,9 +58,11 @@ class _MyHomePageState extends State<MyHomePage> {
   int _counter = 0;
   late LocalStorage _localStorage;
 
+  Session? _session;
+
   void _incrementCounter() async {
-    _counter++;
-    await _localStorage.put(key: 'counter', value: _counter);
+    await _localStorage
+        .saveSession(Session()..accessToken = 'ACCESS${Random().nextInt(100)}');
     setState(() {});
   }
 
@@ -75,7 +79,16 @@ class _MyHomePageState extends State<MyHomePage> {
         ..registerAdapter(ContactAdapter());
     });
     _counter = _localStorage.get<int>(key: 'counter', defaultValue: 0)!;
-    setState(() {});
+    _localStorage.onSessionChange.listen((session) {
+      setState(() {
+        _session = session;
+      });
+    });
+    // setState(() {});
+  }
+
+  void _remove() async {
+    await _localStorage.clearSession();
   }
 
   @override
@@ -106,13 +119,14 @@ class _MyHomePageState extends State<MyHomePage> {
           // horizontal).
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
-            const Text(
-              'You have pushed the button this many times:',
+            Text(
+              'You have pushed the button this many times: ${_session?.accessToken}',
             ),
             Text(
               '$_counter',
-              style: Theme.of(context).textTheme.headline4,
+              style: Theme.of(context).textTheme.headlineMedium,
             ),
+            ElevatedButton(onPressed: _remove, child: const Text('remove')),
           ],
         ),
       ),

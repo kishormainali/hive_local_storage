@@ -167,6 +167,11 @@ final listData = localStorage.getList<Model>(key:'Your KeyName');
 // to get session
 final Session? session = localStorage.getSession();
 
+// to listen on session changes
+localStorage.onSessionChange.listen((session){
+  // do your work
+});
+
 //to check whether session has present or not
 final hasSession = localStorage.hasSession;
 
