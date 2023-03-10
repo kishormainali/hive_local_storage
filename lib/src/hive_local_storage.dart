@@ -93,7 +93,8 @@ class LocalStorage {
       Hive.registerAdapter(SessionAdapter());
       registerAdapters?.call();
       _sessionBox = await Hive.openBox<Session>(sessionKey);
-      _cacheBox = await Hive.openBox(cacheKey, encryptionCipher: encryptionCipher);
+      _cacheBox =
+          await Hive.openBox(cacheKey, encryptionCipher: encryptionCipher);
     });
     return LocalStorage._();
   }
@@ -173,7 +174,8 @@ class LocalStorage {
 
   /// `update`
   /// update item from data
-  Future<void> update<T extends HiveObject>({required String boxName, required T value}) async {
+  Future<void> update<T extends HiveObject>(
+      {required String boxName, required T value}) async {
     if (Hive.isBoxOpen(boxName)) {
       final box = Hive.box<T>(boxName);
       final data = box.values.firstWhereOrNull((element) => element == value);
@@ -186,7 +188,8 @@ class LocalStorage {
 
   /// `delete`
   /// delete item from data
-  Future<void> delete<T extends HiveObject>({required String boxName, required T value}) async {
+  Future<void> delete<T extends HiveObject>(
+      {required String boxName, required T value}) async {
     if (Hive.isBoxOpen(boxName)) {
       final box = Hive.box<T>(boxName);
       final data = box.values.firstWhereOrNull((element) => element == value);
@@ -251,6 +254,15 @@ class LocalStorage {
     return _cacheBox.get(key, defaultValue: defaultValue);
   }
 
+  /// watch
+  /// watch specific key for value changed
+  Stream<T?> watchKey<T>({required String key}) {
+    return _cacheBox
+        .watch(key: key)
+        .distinct()
+        .map<T?>((event) => event.value as T?);
+  }
+
   /// getList
   /// get list data
   List<T> getList<T>({required String key, List<T> defaultValue = const []}) {
@@ -311,5 +323,6 @@ class LocalStorage {
   }
 
   /// convert box to map
-  Map<String, Map<String, dynamic>?> toCacheMap() => Map.unmodifiable(_cacheBox.toMap());
+  Map<String, Map<String, dynamic>?> toCacheMap() =>
+      Map.unmodifiable(_cacheBox.toMap());
 }

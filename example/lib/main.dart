@@ -61,9 +61,7 @@ class _MyHomePageState extends State<MyHomePage> {
   Session? _session;
 
   void _incrementCounter() async {
-    await _localStorage
-        .saveSession(Session()..accessToken = 'ACCESS${Random().nextInt(100)}');
-    setState(() {});
+    await _localStorage.put(key: 'counter', value: Random().nextInt(100));
   }
 
   @override
@@ -82,6 +80,11 @@ class _MyHomePageState extends State<MyHomePage> {
     _localStorage.onSessionChange.listen((session) {
       setState(() {
         _session = session;
+      });
+    });
+    _localStorage.watchKey(key: 'counter').listen((event) {
+      setState(() {
+        _counter = event;
       });
     });
     // setState(() {});

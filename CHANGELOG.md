@@ -1,3 +1,6 @@
+## 1.0.4
+- added watchKey to listen on value changed for key
+
 ## 1.0.3+1
 
 ## 1.0.3

@@ -161,6 +161,12 @@ final localStorage = await LocalStorage.getInstance();
 // to get value from cache box
 final count =  localStorage.get<int>(key:'count');
 
+
+// watch value changed on key
+localStorage.watchKey(key:'key').listen((value){
+  //TODO: do your work
+});
+
 // read list data from cache box
 final listData = localStorage.getList<Model>(key:'Your KeyName');
 
