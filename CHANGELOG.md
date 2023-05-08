@@ -1,3 +1,6 @@
+## 1.0.5
+- removed redundant jsonDecode for getList
+  
 ## 1.0.4
 - added watchKey to listen on value changed for key
 
