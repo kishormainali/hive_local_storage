@@ -173,7 +173,11 @@ class LocalStorage {
 
   /// `update`
   /// update item from data
-  Future<void> update<T extends HiveObject>({required String boxName, required T value}) async {
+
+  Future<void> update<T extends HiveObject>({
+    required String boxName,
+    required T value,
+  }) async {
     if (Hive.isBoxOpen(boxName)) {
       final box = Hive.box<T>(boxName);
       final data = box.values.firstWhereOrNull((element) => element == value);
@@ -186,7 +190,11 @@ class LocalStorage {
 
   /// `delete`
   /// delete item from data
-  Future<void> delete<T extends HiveObject>({required String boxName, required T value}) async {
+
+  Future<void> delete<T extends HiveObject>({
+    required String boxName,
+    required T value,
+  }) async {
     if (Hive.isBoxOpen(boxName)) {
       final box = Hive.box<T>(boxName);
       final data = box.values.firstWhereOrNull((element) => element == value);
@@ -253,13 +261,19 @@ class LocalStorage {
 
   /// watch
   /// watch specific key for value changed
-  Stream<T?> watchKey<T>({required String key}) {
+
+  Stream<T?> watchKey<T>({
+    required String key,
+  }) {
     return _cacheBox.watch(key: key).distinct().map<T?>((event) => event.value as T?);
   }
 
   /// getList
   /// get list data
-  List<T> getList<T>({required String key, List<T> defaultValue = const []}) {
+  List<T> getList<T>({
+    required String key,
+    List<T> defaultValue = const [],
+  }) {
     try {
       final String encodedData = _cacheBox.get(key, defaultValue: '');
       if (encodedData.isEmpty) return defaultValue;
@@ -298,7 +312,9 @@ class LocalStorage {
 
   /// remove
   /// removes value from box registered with [key]
-  Future<void> remove({required String key}) async {
+  Future<void> remove({
+    required String key,
+  }) async {
     return _lock.synchronized(() => _cacheBox.delete(key));
   }
 
