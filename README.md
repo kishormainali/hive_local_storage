@@ -38,6 +38,44 @@ NOTE: avoid using typeId=0 for data classes because typeId=0 is already used by 
   });
 ```
 
+### Session
+hive_local_storage provides easy mechanism to store session using encrypted box
+
+- #### Store Session
+  ```dart
+    final storage = await LocalStorage.getInstance();
+    await storage.saveToken('accessToken','refreshToken'); // refreshToken is optional
+  ```
+- #### Get Session
+  ```dart
+     final storage = await LocalStorage.getInstance();
+     /// get access token
+     final accessToken  = storage.accessToken;
+
+     /// get refresh token
+     final refreshToken = storage.refreshToken;
+
+     /// check wheather session is saved or not
+     final bool hasSession = storage.hasSession;
+
+     /// listen wheather session is present or not
+     StreamSubscription<bool> _subscription = storage.onSessionChange.listen((bool hasSession){
+      // do your stuff
+     });
+     /// cancel your subscription on close/dispose method;
+     _subscription.cancel();
+
+    //to check whether accessToken is expired or not
+    final isTokenExpired = locaStorage.isTokenExpired;
+
+  ```
+- ### Remove Session
+  ```dart
+    final storage = await LocalStorage.getInstance();
+    storage.clearSession();
+  ```
+
+
 ### Opening Custom Boxes
 
 This is useful when you want to store hive objects directly
@@ -80,7 +118,7 @@ to use this method you need to register adapter for hive objects in initializati
     }
 ```
 
-### delete data from Custom Box : [ Experimental ]
+### delete data from Custom Box 
 
 ``` dart 
    final localStorage = await LocalStorage.getInstance();
@@ -89,7 +127,7 @@ to use this method you need to register adapter for hive objects in initializati
     }
 ```
 
-### update data to Custom Box : [ Experimental ]
+### update data to Custom Box 
 
 ``` dart 
    final localStorage = await LocalStorage.getInstance();
@@ -143,13 +181,6 @@ await localStorage.putAll(Map<String, dynamic> entries);
 await localStorage.putList<Model>(key:'KeyName',value:<Model>[]);
 
 
-// to store use session
-final session = Session()
-  ..accessToken = 'accessToken'
-  ..refreshToken = 'refreshToken';
-  
-await localStorage.saveSession(session);
-
 ```
 
 Read data
@@ -170,19 +201,6 @@ localStorage.watchKey(key:'key').listen((value){
 // read list data from cache box
 final listData = localStorage.getList<Model>(key:'Your KeyName');
 
-// to get session
-final Session? session = localStorage.getSession();
-
-// to listen on session changes
-localStorage.onSessionChange.listen((session){
-  // do your work
-});
-
-//to check whether session has present or not
-final hasSession = localStorage.hasSession;
-
-//to check whether accessToken is expired or not
-final isTokenExpired = locaStorage.isTokenExpired;
 
 ```
 
@@ -198,8 +216,8 @@ await localStorage.remove(key:'count');
 // remove all from cache box
 await localStorage.clear();
 
-// remove session
-await localStorage.clearSession();
+// clear both session and cache box
+await localStorage.clearAll();
 
 ```
 

@@ -58,8 +58,6 @@ class _MyHomePageState extends State<MyHomePage> {
   int _counter = 0;
   late LocalStorage _localStorage;
 
-  Session? _session;
-
   void _incrementCounter() async {
     await _localStorage.put(key: 'counter', value: Random().nextInt(100));
   }
@@ -77,11 +75,7 @@ class _MyHomePageState extends State<MyHomePage> {
         ..registerAdapter(ContactAdapter());
     });
     _counter = _localStorage.get<int>(key: 'counter', defaultValue: 0)!;
-    _localStorage.onSessionChange.listen((session) {
-      setState(() {
-        _session = session;
-      });
-    });
+
     _localStorage.watchKey(key: 'counter').listen((event) {
       setState(() {
         _counter = event;
@@ -122,8 +116,8 @@ class _MyHomePageState extends State<MyHomePage> {
           // horizontal).
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
-            Text(
-              'You have pushed the button this many times: ${_session?.accessToken}',
+            const Text(
+              'You have pushed the button this many times:',
             ),
             Text(
               '$_counter',

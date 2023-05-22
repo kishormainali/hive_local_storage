@@ -1,3 +1,20 @@
+## 1.0.6
+- add ```clearAll()``` method to clear both session and cache box
+- add custom encryption support for boxes. pass HiveCipher while registering local storage 
+```dart 
+final storage = LocalStorage.getInstance(customCipher: HiveCipher // custom encryption algorithm,) 
+/// if you want ot open custom box
+storage.openCustomBox( boxName:'box',
+    typeId:100,
+    customCipher:HiveCipher // custom encryption algorithm,
+    );
+```
+> Breaking Changes
+- deprecate `getSession()` use `accessToken` or `refreshToken` getter instead
+- renamed ```saveSession(Session)``` to ```saveToken(String accessToken,[String? refreshToken])``` 
+- onSessionChange now returns `Stream<bool>` instead of `Stream<Session?>`
+
+
 ## 1.0.5
 - removed redundant jsonDecode for getList
   

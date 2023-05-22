@@ -81,6 +81,7 @@ class LocalStorage {
   /// returns [LocalStorage] instance
   static Future<LocalStorage> getInstance({
     void Function()? registerAdapters,
+    HiveCipher? customCipher,
   }) async {
     WidgetsFlutterBinding.ensureInitialized();
     await _lock.synchronized(() async {
@@ -88,14 +89,21 @@ class LocalStorage {
         aOptions: AndroidOptions(encryptedSharedPreferences: true),
         iOptions: IOSOptions(accessibility: KeychainAccessibility.unlocked),
       );
-      final encryptionCipher = await _encryptionKey;
       await Hive.initFlutter();
       Hive.registerAdapter(SessionAdapter());
       registerAdapters?.call();
-      _sessionBox = await Hive.openBox<Session>(sessionKey);
-      _cacheBox = await Hive.openBox(cacheKey, encryptionCipher: encryptionCipher);
+      _sessionBox = await Hive.openBox<Session>(sessionKey,
+          encryptionCipher: await _cipher(customCipher));
+      _cacheBox = await Hive.openBox(cacheKey,
+          encryptionCipher: await _cipher(customCipher));
     });
     return LocalStorage._();
+  }
+
+  /// returns encryption cipher for boxes
+  static Future<HiveCipher> _cipher(HiveCipher? customCipher) async {
+    if (customCipher != null) return customCipher;
+    return await _encryptionKey;
   }
 
   /// HiveAesCipher encryptionKey
@@ -118,6 +126,7 @@ class LocalStorage {
   Future<void> openCustomBox<T extends HiveObject>({
     required String boxName,
     required int typeId,
+    HiveCipher? customCipher,
   }) async {
     if (!Hive.isAdapterRegistered(typeId)) {
       throw Exception('Please register adapter for $T before opening box.');
@@ -125,7 +134,7 @@ class LocalStorage {
     await _lock.synchronized(
       () async => Hive.openBox<T>(
         boxName,
-        encryptionCipher: await _encryptionKey,
+        encryptionCipher: await _cipher(customCipher),
       ),
     );
   }
@@ -204,34 +213,55 @@ class LocalStorage {
     }
   }
 
-  /// `getSession`
+  /// `session`
   /// get [Session] from the box
+  @Deprecated(
+      'use accessToken and refreshToken getter instead. will be removed in next release.')
   Session? getSession() {
     return _sessionBox.values.firstOrNull;
   }
 
+  /// private getter to access session
+  Session? get _session => _sessionBox.values.firstOrNull;
+
+  /// refreshToken
+  /// getter to access accessToken
+  String? get accessToken => _session?.accessToken;
+
+  /// refreshToken
+  /// getter to access refreshToken
+  String? get refreshToken => _session?.refreshToken;
+
   /// `onSessionChange`
-  /// returns stream of [Session] when data changes on box
-  Stream<Session?> get onSessionChange {
-    return _sessionBox.watch().distinct().map<Session?>((event) {
-      return event.value;
-    }).startWith(getSession());
+  /// returns stream of [bool] when data changes on box
+  Stream<bool> get onSessionChange {
+    return _sessionBox.watch().distinct().map<bool>((event) {
+      return event.value != null;
+    }).startWith(hasSession);
   }
 
   /// `hasSession`
   /// checks whether `Box<Session>` is not empty or [Session] is not null
   bool get hasSession {
-    return _sessionBox.isNotEmpty && getSession() != null;
+    return _sessionBox.isNotEmpty && _session != null;
   }
 
-  /// `saveSession`
-  /// clears the previously stored value and adds new [Session]
-  Future<void> saveSession(Session session) async {
-    await _lock.synchronized(() {
-      if (_sessionBox.isEmpty) {
-        _sessionBox.add(session);
+  /// `saveToken`
+  /// updates access token if exists or saves new one if not
+  /// updates refresh token
+  Future<void> saveToken(String token, [String? refreshToken]) async {
+    _lock.synchronized(() async {
+      if (hasSession) {
+        _session!
+          ..accessToken = token
+          ..refreshToken = refreshToken;
+        await _session!.save();
       } else {
-        _sessionBox.putAt(0, session);
+        await _sessionBox.add(
+          Session()
+            ..accessToken = token
+            ..refreshToken = refreshToken,
+        );
       }
     });
   }
@@ -239,9 +269,8 @@ class LocalStorage {
   /// `isTokenExpired`
   /// checks whether token is expired or not
   bool get isTokenExpired {
-    if (_sessionBox.isEmpty) return true;
-    final session = _sessionBox.getAt(0)!;
-    return JwtDecoder.isExpired(session.accessToken);
+    if (!hasSession) return true;
+    return JwtDecoder.isExpired(_session!.accessToken);
   }
 
   /// clearSession
@@ -265,7 +294,10 @@ class LocalStorage {
   Stream<T?> watchKey<T>({
     required String key,
   }) {
-    return _cacheBox.watch(key: key).distinct().map<T?>((event) => event.value as T?);
+    return _cacheBox
+        .watch(key: key)
+        .distinct()
+        .map<T?>((event) => event.value as T?);
   }
 
   /// getList
@@ -324,6 +356,16 @@ class LocalStorage {
     return _lock.synchronized(() => _cacheBox.clear());
   }
 
+  /// clearAll
+  /// clear all values from both session box and cache box
+  /// doesnot clears box created using `openCustomBox()`
+  Future<void> clearAll() async {
+    return _lock.synchronized(() async {
+      await _sessionBox.clear();
+      await _cacheBox.clear();
+    });
+  }
+
   /// close all the opened box
   Future<void> closeAll() async {
     await _lock.synchronized(() {
@@ -333,5 +375,6 @@ class LocalStorage {
   }
 
   /// convert box to map
-  Map<String, Map<String, dynamic>?> toCacheMap() => Map.unmodifiable(_cacheBox.toMap());
+  Map<String, Map<String, dynamic>?> toCacheMap() =>
+      Map.unmodifiable(_cacheBox.toMap());
 }
