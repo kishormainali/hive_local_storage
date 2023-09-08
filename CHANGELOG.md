@@ -1,3 +1,8 @@
+## 1.0.7
+- updated `flutter_secure_storage`
+- removed deprecated methods
+
+
 ## 1.0.6
 - add ```clearAll()``` method to clear both session and cache box
 - add custom encryption support for boxes. pass HiveCipher while registering local storage 

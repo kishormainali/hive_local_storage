@@ -92,10 +92,8 @@ class LocalStorage {
       await Hive.initFlutter();
       Hive.registerAdapter(SessionAdapter());
       registerAdapters?.call();
-      _sessionBox = await Hive.openBox<Session>(sessionKey,
-          encryptionCipher: await _cipher(customCipher));
-      _cacheBox = await Hive.openBox(cacheKey,
-          encryptionCipher: await _cipher(customCipher));
+      _sessionBox = await Hive.openBox<Session>(sessionKey, encryptionCipher: await _cipher(customCipher));
+      _cacheBox = await Hive.openBox(cacheKey, encryptionCipher: await _cipher(customCipher));
     });
     return LocalStorage._();
   }
@@ -213,14 +211,6 @@ class LocalStorage {
     }
   }
 
-  /// `session`
-  /// get [Session] from the box
-  @Deprecated(
-      'use accessToken and refreshToken getter instead. will be removed in next release.')
-  Session? getSession() {
-    return _sessionBox.values.firstOrNull;
-  }
-
   /// private getter to access session
   Session? get _session => _sessionBox.values.firstOrNull;
 
@@ -294,10 +284,7 @@ class LocalStorage {
   Stream<T?> watchKey<T>({
     required String key,
   }) {
-    return _cacheBox
-        .watch(key: key)
-        .distinct()
-        .map<T?>((event) => event.value as T?);
+    return _cacheBox.watch(key: key).distinct().map<T?>((event) => event.value as T?);
   }
 
   /// getList
@@ -375,6 +362,5 @@ class LocalStorage {
   }
 
   /// convert box to map
-  Map<String, Map<String, dynamic>?> toCacheMap() =>
-      Map.unmodifiable(_cacheBox.toMap());
+  Map<String, Map<String, dynamic>?> toCacheMap() => Map.unmodifiable(_cacheBox.toMap());
 }
