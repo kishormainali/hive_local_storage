@@ -9,8 +9,14 @@ class Session extends HiveObject {
   @HiveField(1)
   String? refreshToken;
 
+  @HiveField(2)
+  DateTime createdAt = DateTime.now();
+
+  @HiveField(3)
+  DateTime? updatedAt;
+
   @override
   String toString() {
-    return 'Session{accessToken: $accessToken, refreshToken: $refreshToken}';
+    return 'Session{accessToken: $accessToken, refreshToken: $refreshToken , createdAt: $createdAt, updatedAt: $updatedAt}';
   }
 }

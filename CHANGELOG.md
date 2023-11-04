@@ -1,3 +1,9 @@
+## 1.0.8
+- updated repository url
+- added createAt and updatedAt fields in Session
+- added `deleteAll` method to delete all boxes from disk
+- added `filter` parameter in `update` and `delete` method
+
 ## 1.0.7
 - updated `flutter_secure_storage`
 - removed deprecated methods

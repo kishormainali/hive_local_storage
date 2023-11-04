@@ -92,8 +92,10 @@ class LocalStorage {
       await Hive.initFlutter();
       Hive.registerAdapter(SessionAdapter());
       registerAdapters?.call();
-      _sessionBox = await Hive.openBox<Session>(sessionKey, encryptionCipher: await _cipher(customCipher));
-      _cacheBox = await Hive.openBox(cacheKey, encryptionCipher: await _cipher(customCipher));
+      _sessionBox = await Hive.openBox<Session>(sessionKey,
+          encryptionCipher: await _cipher(customCipher));
+      _cacheBox = await Hive.openBox(cacheKey,
+          encryptionCipher: await _cipher(customCipher));
     });
     return LocalStorage._();
   }
@@ -184,10 +186,12 @@ class LocalStorage {
   Future<void> update<T extends HiveObject>({
     required String boxName,
     required T value,
+    bool Function(T)? filter,
   }) async {
     if (Hive.isBoxOpen(boxName)) {
       final box = Hive.box<T>(boxName);
-      final data = box.values.firstWhereOrNull((element) => element == value);
+      final data =
+          box.values.firstWhereOrNull(filter ?? (element) => element == value);
       if (data != null) await _lock.synchronized(() => data.delete());
       await _lock.synchronized(() => box.add(value));
     } else {
@@ -201,10 +205,12 @@ class LocalStorage {
   Future<void> delete<T extends HiveObject>({
     required String boxName,
     required T value,
+    bool Function(T)? filter,
   }) async {
     if (Hive.isBoxOpen(boxName)) {
       final box = Hive.box<T>(boxName);
-      final data = box.values.firstWhereOrNull((element) => element == value);
+      final data =
+          box.values.firstWhereOrNull(filter ?? (element) => element == value);
       await _lock.synchronized(() => data?.delete());
     } else {
       throw Exception('Please `openCustomBox` before accessing it');
@@ -221,6 +227,14 @@ class LocalStorage {
   /// refreshToken
   /// getter to access refreshToken
   String? get refreshToken => _session?.refreshToken;
+
+  /// createdAt
+  /// getter to access createdAt
+  DateTime? get createdAt => _session?.createdAt;
+
+  /// updatedAt
+  /// getter to access updatedAt
+  DateTime? get updatedAt => _session?.updatedAt;
 
   /// `onSessionChange`
   /// returns stream of [bool] when data changes on box
@@ -244,13 +258,15 @@ class LocalStorage {
       if (hasSession) {
         _session!
           ..accessToken = token
-          ..refreshToken = refreshToken;
+          ..refreshToken = refreshToken
+          ..updatedAt = DateTime.now();
         await _session!.save();
       } else {
         await _sessionBox.add(
           Session()
             ..accessToken = token
-            ..refreshToken = refreshToken,
+            ..refreshToken = refreshToken
+            ..createdAt = DateTime.now(),
         );
       }
     });
@@ -284,7 +300,10 @@ class LocalStorage {
   Stream<T?> watchKey<T>({
     required String key,
   }) {
-    return _cacheBox.watch(key: key).distinct().map<T?>((event) => event.value as T?);
+    return _cacheBox
+        .watch(key: key)
+        .distinct()
+        .map<T?>((event) => event.value as T?);
   }
 
   /// getList
@@ -361,6 +380,16 @@ class LocalStorage {
     });
   }
 
+  /// delete all the opened box
+  Future<void> deleteAll() async {
+    await _lock.synchronized(() {
+      _sessionBox.deleteFromDisk();
+      _cacheBox.deleteFromDisk();
+      Hive.deleteFromDisk();
+    });
+  }
+
   /// convert box to map
-  Map<String, Map<String, dynamic>?> toCacheMap() => Map.unmodifiable(_cacheBox.toMap());
+  Map<String, Map<String, dynamic>?> toCacheMap() =>
+      Map.unmodifiable(_cacheBox.toMap());
 }
