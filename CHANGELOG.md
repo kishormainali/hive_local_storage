@@ -1,3 +1,8 @@
+## 1.0.9
+- renamed `openCustomBox` to `openBox`
+- renamed `getCustomList` to `getBoxValues`
+- updated typeId check in `openBox` method
+
 ## 1.0.8
 - updated repository url
 - added createAt and updatedAt fields in Session

@@ -123,13 +123,13 @@ class LocalStorage {
 
   /// `openCustomBox`
   /// open custom box
-  Future<void> openCustomBox<T extends HiveObject>({
+  Future<void> openBox<T>({
     required String boxName,
-    required int typeId,
     HiveCipher? customCipher,
+    int? typeId,
   }) async {
-    if (!Hive.isAdapterRegistered(typeId)) {
-      throw Exception('Please register adapter for $T before opening box.');
+    if (typeId != null && !Hive.isAdapterRegistered(typeId)) {
+      throw Exception('Please register adapter for $T');
     }
     await _lock.synchronized(
       () async => Hive.openBox<T>(
@@ -141,14 +141,14 @@ class LocalStorage {
 
   /// `getCustomList`
   /// get data from custom box
-  List<T> getCustomList<T extends HiveObject>({
+  List<T> getBoxValues<T extends HiveObject>({
     required String boxName,
   }) {
     if (Hive.isBoxOpen(boxName)) {
       final box = Hive.box<T>(boxName);
       return box.values.toList();
     } else {
-      throw Exception('Please `openCustomBox` before accessing it');
+      throw Exception('Please `openBox` before accessing it');
     }
   }
 
