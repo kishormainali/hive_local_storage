@@ -139,6 +139,47 @@ class LocalStorage {
     );
   }
 
+  /// puts data in custom box
+  Future<void> putCustom<T>({
+    required String boxName,
+    required String key,
+    required T value,
+  }) async {
+    if (Hive.isBoxOpen(boxName)) {
+      final box = Hive.box<T>(boxName);
+      await _lock.synchronized(() => box.put(key, value));
+    } else {
+      throw Exception('Please `openBox` before accessing it');
+    }
+  }
+
+  /// get data from custom box
+  T? getCustom<T>({
+    required String boxName,
+    required String key,
+    T? defaultValue,
+  }) {
+    if (Hive.isBoxOpen(boxName)) {
+      final box = Hive.box<T>(boxName);
+      return box.get(key, defaultValue: defaultValue);
+    } else {
+      throw Exception('Please `openBox` before accessing it');
+    }
+  }
+
+  /// remove data from custom box
+  Future<void> removeCustom<T>({
+    required String boxName,
+    required String key,
+  }) async {
+    if (Hive.isBoxOpen(boxName)) {
+      final box = Hive.box<T>(boxName);
+      await _lock.synchronized(() => box.delete(key));
+    } else {
+      throw Exception('Please `openBox` before accessing it');
+    }
+  }
+
   /// `getCustomList`
   /// get data from custom box
   List<T> getBoxValues<T extends HiveObject>({
@@ -377,6 +418,7 @@ class LocalStorage {
     await _lock.synchronized(() {
       _sessionBox.close();
       _cacheBox.close();
+      Hive.close();
     });
   }
 
