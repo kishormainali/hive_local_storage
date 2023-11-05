@@ -1,3 +1,7 @@
+## 1.0.10
+- added `getCustom` and `putCustom` methods to get and put custom data in box
+- added `removeCustom` method to remove custom data from box
+
 ## 1.0.9
 - renamed `openCustomBox` to `openBox`
 - renamed `getCustomList` to `getBoxValues`
