@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 
 // ignore: depend_on_referenced_packages
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:rxdart/rxdart.dart';
@@ -61,7 +61,11 @@ class LocalStorage {
   static const String encryptionBoxKey = '__ENCRYPTION_KEY__';
 
   /// [FlutterSecureStorage] storage for storing encryption key
-  static late FlutterSecureStorage _storage;
+  static const FlutterSecureStorage _storage = FlutterSecureStorage(
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+    iOptions: IOSOptions(
+        accessibility: KeychainAccessibility.first_unlock_this_device),
+  );
 
   /// [Box] session box
   static late Box<Session> _sessionBox;
@@ -85,10 +89,6 @@ class LocalStorage {
   }) async {
     WidgetsFlutterBinding.ensureInitialized();
     await _lock.synchronized(() async {
-      _storage = const FlutterSecureStorage(
-        aOptions: AndroidOptions(encryptedSharedPreferences: true),
-        iOptions: IOSOptions(accessibility: KeychainAccessibility.unlocked),
-      );
       await Hive.initFlutter();
       Hive.registerAdapter(SessionAdapter());
       registerAdapters?.call();
@@ -123,15 +123,15 @@ class LocalStorage {
 
   /// `openCustomBox`
   /// open custom box
-  Future<void> openBox<T>({
+  Future<Box<T>> openBox<T>({
     required String boxName,
     HiveCipher? customCipher,
     int? typeId,
   }) async {
     if (typeId != null && !Hive.isAdapterRegistered(typeId)) {
-      throw Exception('Please register adapter for $T');
+      throw Exception('Please register adapter for $T.');
     }
-    await _lock.synchronized(
+    return await _lock.synchronized(
       () async => Hive.openBox<T>(
         boxName,
         encryptionCipher: await _cipher(customCipher),
@@ -139,52 +139,82 @@ class LocalStorage {
     );
   }
 
-  /// puts data in custom box
-  Future<void> putCustom<T>({
-    required String boxName,
+  /// `getBox`
+  /// returns the previously opened box
+  Future<Box<T>> getBox<T>(String name) async {
+    if (Hive.isBoxOpen(name) && (await Hive.boxExists(name))) {
+      return Hive.box<T>(name);
+    } else {
+      throw Exception('Please `openBox` before accessing it');
+    }
+  }
+
+  /// `put`
+  /// puts data in cache box
+  /// if [boxName] is provided then it will put data in custom box
+  Future<void> put<T>({
     required String key,
     required T value,
+    String? boxName,
   }) async {
-    if (Hive.isBoxOpen(boxName)) {
-      final box = Hive.box<T>(boxName);
-      await _lock.synchronized(() => box.put(key, value));
+    if (boxName != null) {
+      if (Hive.isBoxOpen(boxName)) {
+        await _lock.synchronized(() {
+          final box = Hive.box<T>(boxName);
+          return box.put(key, value);
+        });
+      } else {
+        throw Exception('Please `openBox` before accessing it');
+      }
     } else {
-      throw Exception('Please `openBox` before accessing it');
+      await _lock.synchronized(() => _cacheBox.put(key, value));
     }
   }
 
-  /// get data from custom box
-  T? getCustom<T>({
-    required String boxName,
+  /// `get`
+  /// get data from cache box
+  /// returns [defaultValue] if [key] is not found
+  /// returns null if [defaultValue] is not provided
+  /// if [boxName] is provided then it will get data from custom box
+  T? get<T>({
     required String key,
     T? defaultValue,
+    String? boxName,
   }) {
-    if (Hive.isBoxOpen(boxName)) {
-      final box = Hive.box<T>(boxName);
-      return box.get(key, defaultValue: defaultValue);
+    if (boxName != null) {
+      if (Hive.isBoxOpen(boxName)) {
+        final box = Hive.box<T>(boxName);
+        return box.get(key, defaultValue: defaultValue);
+      } else {
+        throw Exception('Please `openBox` before accessing it');
+      }
     } else {
-      throw Exception('Please `openBox` before accessing it');
+      return _cacheBox.get(key, defaultValue: defaultValue);
     }
   }
 
-  /// remove data from custom box
-  Future<void> removeCustom<T>({
-    required String boxName,
+  /// `remove`
+  /// removes data from cache box
+  /// if [boxName] is provided then it will remove data from custom box
+  Future<void> remove<T>({
     required String key,
+    String? boxName,
   }) async {
-    if (Hive.isBoxOpen(boxName)) {
-      final box = Hive.box<T>(boxName);
-      await _lock.synchronized(() => box.delete(key));
+    if (boxName != null) {
+      if (Hive.isBoxOpen(boxName)) {
+        final box = Hive.box<T>(boxName);
+        await _lock.synchronized(() => box.delete(key));
+      } else {
+        throw Exception('Please `openBox` before accessing it');
+      }
     } else {
-      throw Exception('Please `openBox` before accessing it');
+      await _lock.synchronized(() => _cacheBox.delete(key));
     }
   }
 
-  /// `getCustomList`
-  /// get data from custom box
-  List<T> getBoxValues<T extends HiveObject>({
-    required String boxName,
-  }) {
+  /// `values`
+  /// get all the values from custom box
+  List<T> values<T>(String boxName) {
     if (Hive.isBoxOpen(boxName)) {
       final box = Hive.box<T>(boxName);
       return box.values.toList();
@@ -195,35 +225,40 @@ class LocalStorage {
 
   /// `add`
   /// add data to custom box
-  Future<void> add<T extends HiveObject>({
+  Future<void> add<T>({
     required String boxName,
     required T value,
   }) async {
     if (Hive.isBoxOpen(boxName)) {
-      final box = Hive.box<T>(boxName);
-      await _lock.synchronized(() => box.add(value));
+      await _lock.synchronized(() {
+        final box = Hive.box<T>(boxName);
+        return box.add(value);
+      });
     } else {
-      throw Exception('Please `openCustomBox` before accessing it');
+      throw Exception('Please `openBox` before accessing it');
     }
   }
 
   /// `addAll`
   /// add multiple data to custom box
-  Future<void> addAll<T extends HiveObject>({
+  Future<void> addAll<T>({
     required String boxName,
     required List<T> values,
   }) async {
     if (Hive.isBoxOpen(boxName)) {
-      final box = Hive.box<T>(boxName);
-      await _lock.synchronized(() => box.addAll(values));
+      await _lock.synchronized(() {
+        final box = Hive.box<T>(boxName);
+        return box.addAll(values);
+      });
     } else {
-      throw Exception('Please `openCustomBox` before accessing it');
+      throw Exception('Please `openBox` before accessing it');
     }
   }
 
   /// `update`
   /// update item from data
-
+  ///
+  /// only supports [HiveObject] type
   Future<void> update<T extends HiveObject>({
     required String boxName,
     required T value,
@@ -236,13 +271,14 @@ class LocalStorage {
       if (data != null) await _lock.synchronized(() => data.delete());
       await _lock.synchronized(() => box.add(value));
     } else {
-      throw Exception('Please `openCustomBox` before accessing it');
+      throw Exception('Please `openBox` before accessing it');
     }
   }
 
   /// `delete`
   /// delete item from data
-
+  ///
+  /// only supports [HiveObject] type
   Future<void> delete<T extends HiveObject>({
     required String boxName,
     required T value,
@@ -254,7 +290,7 @@ class LocalStorage {
           box.values.firstWhereOrNull(filter ?? (element) => element == value);
       await _lock.synchronized(() => data?.delete());
     } else {
-      throw Exception('Please `openCustomBox` before accessing it');
+      throw Exception('Please `openBox` before accessing it');
     }
   }
 
@@ -315,8 +351,8 @@ class LocalStorage {
 
   /// `isTokenExpired`
   /// checks whether token is expired or not
-  bool get isTokenExpired {
-    if (!hasSession) return true;
+  bool? get isTokenExpired {
+    if (!hasSession) return null;
     return JwtDecoder.isExpired(_session!.accessToken);
   }
 
@@ -326,25 +362,29 @@ class LocalStorage {
     await _lock.synchronized(() => _sessionBox.clear());
   }
 
-  /// get
-  /// get value from box associated with [key]
-  T? get<T>({
-    required String key,
-    T? defaultValue,
-  }) {
-    return _cacheBox.get(key, defaultValue: defaultValue);
-  }
-
   /// watch
   /// watch specific key for value changed
-
   Stream<T?> watchKey<T>({
     required String key,
+    String? boxName,
   }) {
-    return _cacheBox
-        .watch(key: key)
-        .distinct()
-        .map<T?>((event) => event.value as T?);
+    if (boxName != null) {
+      if (Hive.isBoxOpen(boxName)) {
+        final box = Hive.box<T>(boxName);
+        return box
+            .watch(key: key)
+            .distinct()
+            .map<T?>((event) => event.value as T?);
+      } else {
+        throw Exception(
+            '$boxName is not yet opened, Please `openBox` before accessing it');
+      }
+    } else {
+      return _cacheBox
+          .watch(key: key)
+          .distinct()
+          .map<T?>((event) => event.value as T?);
+    }
   }
 
   /// getList
@@ -357,19 +397,10 @@ class LocalStorage {
       final String encodedData = _cacheBox.get(key, defaultValue: '');
       if (encodedData.isEmpty) return defaultValue;
       final decodedData = jsonDecode(_cacheBox.get(key));
-      return List<T>.from(decodedData);
+      return List<T>.of(decodedData);
     } catch (_) {
       return defaultValue;
     }
-  }
-
-  /// save
-  /// puts value in box with [key]
-  Future<void> put<T>({
-    required String key,
-    required T value,
-  }) async {
-    return _cacheBox.put(key, value);
   }
 
   /// save list of data
@@ -389,23 +420,55 @@ class LocalStorage {
     return _cacheBox.putAll(entries);
   }
 
-  /// remove
-  /// removes value from box registered with [key]
-  Future<void> remove({
-    required String key,
-  }) async {
-    return _lock.synchronized(() => _cacheBox.delete(key));
-  }
-
   /// clear
   /// clear all values from box
   Future<int> clear() async {
     return _lock.synchronized(() => _cacheBox.clear());
   }
 
+  /// `writeAndClose`
+  /// write value to box and close the box
+  static Future<void> writeAndClose<T>({
+    required String boxName,
+    required String key,
+    required T value,
+  }) async {
+    return _lock.synchronized(() async {
+      /// open new box
+      final box =
+          await Hive.openBox<T>(boxName, encryptionCipher: await _cipher(null));
+
+      /// put value
+      await box.put(key, value);
+
+      /// close the box
+      await box.close();
+    });
+  }
+
+  /// `readAndClose`
+  /// read value from box and close the box
+  static Future<T?> readAndClose<T>({
+    required String key,
+    required String boxName,
+  }) async {
+    return _lock.synchronized(() async {
+      /// open new box
+      final box =
+          await Hive.openBox<T>(boxName, encryptionCipher: await _cipher(null));
+      final value = box.get(key);
+
+      /// close the box
+      await box.close();
+
+      /// return value
+      return value;
+    });
+  }
+
   /// clearAll
   /// clear all values from both session box and cache box
-  /// doesnot clears box created using `openCustomBox()`
+  /// does not clears box created using `openCustomBox()`
   Future<void> clearAll() async {
     return _lock.synchronized(() async {
       await _sessionBox.clear();

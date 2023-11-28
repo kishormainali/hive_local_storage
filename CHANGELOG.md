@@ -1,3 +1,13 @@
+## 1.1.0
+> This release contains breaking changes
+- removed `getCusom` and `putCustom` methods use `get` and `put` with `boxName` instead
+- removed `removeCustom` method use `remove` with `boxName` instead
+- renamed `getBoxValues` to `values`
+- add `getBox` method to get box instance
+- `openBox` method now returns `Box<T>` instead of `void`
+- `watchKey` now supports custom box
+
+
 ## 1.0.10
 - added `getCustom` and `putCustom` methods to get and put custom data in box
 - added `removeCustom` method to remove custom data from box

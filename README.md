@@ -93,14 +93,14 @@ to use this method you need to register adapter for hive objects in initializati
     }
 
     final localStorage = await LocalStorage.getInstance([TestAdapter()]);
-    await localStorage.openCustomBox<TestModel>(boxName:'__TEST_BOX__',typeId:1)
+    await localStorage.openBox<TestModel>(boxName:'__TEST_BOX__',typeId:1)
 ```
 
 ### Read From Custom Box
 
 ``` dart 
    final localStorage = await LocalStorage.getInstance();
-   List<TestModel> data = localStorage.getCustomList<TestModel>(boxName:'__TEST_BOX__');
+   List<TestModel> data = localStorage.values<TestModel>('__TEST_BOX__');
 ```
 
 ### Write data to Custom Box

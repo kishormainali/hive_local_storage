@@ -12,7 +12,7 @@ void main() async {
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
+  const MyApp({super.key});
 
   // This widget is the root of your application.
   @override
@@ -37,7 +37,7 @@ class MyApp extends StatelessWidget {
 }
 
 class MyHomePage extends StatefulWidget {
-  const MyHomePage({Key? key, required this.title}) : super(key: key);
+  const MyHomePage({super.key, required this.title});
 
   // This widget is the home page of your application. It is stateful, meaning
   // that it has a State object (defined below) that contains fields that affect
@@ -76,16 +76,16 @@ class _MyHomePageState extends State<MyHomePage> {
     });
     _counter = _localStorage.get<int>(key: 'counter', defaultValue: 0)!;
 
-    _localStorage.watchKey(key: 'counter').listen((event) {
+    _localStorage.watchKey<int>(key: 'counter').listen((event) {
       setState(() {
-        _counter = event;
+        _counter = event ?? 0;
       });
     });
     // setState(() {});
   }
 
   void _remove() async {
-    await _localStorage.clearSession();
+    await _localStorage.clear();
   }
 
   @override
