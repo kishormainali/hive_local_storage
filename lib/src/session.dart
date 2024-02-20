@@ -10,7 +10,7 @@ class Session extends HiveObject {
   String? refreshToken;
 
   @HiveField(2)
-  DateTime createdAt = DateTime.now();
+  DateTime? createdAt;
 
   @HiveField(3)
   DateTime? updatedAt;
