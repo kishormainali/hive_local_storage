@@ -6,11 +6,12 @@ part 'session.g.dart';
 class Session extends HiveObject {
   @HiveField(0)
   late String accessToken;
+
   @HiveField(1)
   String? refreshToken;
 
   @HiveField(2)
-  DateTime createdAt = DateTime.now();
+  DateTime? createdAt;
 
   @HiveField(3)
   DateTime? updatedAt;
