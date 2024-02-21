@@ -104,7 +104,7 @@ class LocalStorage {
 
   /// `openBox`
   /// open custom box
-  Future<Box<T>> openBox<T>({
+  FutureOr<Box<T>> openBox<T>({
     required String boxName,
     @Deprecated('''use customCipher from getInstance() method instead
       will be removed in next version''') HiveCipher? customCipher,
@@ -225,6 +225,7 @@ class LocalStorage {
       await box.clear();
       await box.addAll(values);
     });
+
   }
 
   /// `delete`
@@ -395,7 +396,6 @@ class LocalStorage {
           boxName,
           encryptionCipher: _encryptionCipher,
         );
-
         /// put value
         await box.put(key, value);
 
@@ -420,6 +420,7 @@ class LocalStorage {
 
         /// get value
         final value = box.get(key);
+
 
         /// close the box
         await box.close();
@@ -499,4 +500,5 @@ class LocalStorage {
       }
     }
   }
+
 }

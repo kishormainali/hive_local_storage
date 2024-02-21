@@ -1,3 +1,6 @@
+## 1.1.1
+- make createdAt nullable in Session
+
 ## 1.1.0
 > This release contains breaking changes
 - removed `getCusom` and `putCustom` methods use `get` and `put` with `boxName` instead
