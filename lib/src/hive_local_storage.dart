@@ -67,6 +67,8 @@ class LocalStorage {
   /// path to store the boxes
   static String? _storagePath;
 
+  /// encryption cipher for the boxes
+  ///
   static late HiveCipher _encryptionCipher;
 
   /// initialize the dependencies
@@ -104,27 +106,31 @@ class LocalStorage {
   /// open custom box
   Future<Box<T>> openBox<T>({
     required String boxName,
+    @Deprecated('''use customCipher from getInstance() method instead
+      will be removed in next version''') HiveCipher? customCipher,
     int? typeId,
   }) async {
+    assert(typeId != 0, 'typeId 0 is already occupied by session');
     if (typeId != null && !Hive.isAdapterRegistered(typeId)) {
       throw Exception('Please register adapter for $T.');
     }
-    return _lock.synchronized(
-      () async => Hive.openBox<T>(
+    return _lockGuard(() {
+      customCipher ??= _encryptionCipher;
+      return Hive.openBox<T>(
         boxName,
-        encryptionCipher: _encryptionCipher,
-      ),
-    );
+        encryptionCipher: customCipher,
+      );
+    });
   }
 
   /// `getBox`
-  /// returns the previously opened box
+  /// returns the previously opened box if exists
+  /// otherwise opens the box and returns new box
   Future<Box<T>> getBox<T>(String name) async {
-    if (Hive.isBoxOpen(name) && (await Hive.boxExists(name))) {
-      return Hive.box<T>(name);
-    } else {
-      throw Exception('Please `openBox` before accessing it');
-    }
+    return _lockGuard(
+      () => Hive.box<T>(name),
+      () => Hive.openBox<T>(name, encryptionCipher: _encryptionCipher),
+    );
   }
 
   /// `put`
@@ -134,19 +140,11 @@ class LocalStorage {
     required String key,
     required T value,
     String? boxName,
-  }) async {
-    if (boxName != null) {
-      if (Hive.isBoxOpen(boxName)) {
-        await _lock.synchronized(() {
-          final box = Hive.box<T>(boxName);
-          return box.put(key, value);
-        });
-      } else {
-        throw Exception('Please `openBox` before accessing it');
-      }
-    } else {
-      await _lock.synchronized(() => _cacheBox.put(key, value));
-    }
+  }) {
+    return _lockGuard(() {
+      if (boxName == null) return _cacheBox.put(key, value);
+      return Hive.box<T>(boxName).put(key, value);
+    });
   }
 
   /// `get`
@@ -159,16 +157,12 @@ class LocalStorage {
     T? defaultValue,
     String? boxName,
   }) {
-    if (boxName != null) {
-      if (Hive.isBoxOpen(boxName)) {
-        final box = Hive.box<T>(boxName);
-        return box.get(key, defaultValue: defaultValue);
-      } else {
-        throw Exception('Please `openBox` before accessing it');
-      }
-    } else {
-      return _cacheBox.get(key, defaultValue: defaultValue);
-    }
+    return _guard(() {
+      if (boxName == null) return _cacheBox.get(key, defaultValue: defaultValue);
+      return Hive.box(boxName).get(key, defaultValue: defaultValue);
+    }, () {
+      return defaultValue;
+    });
   }
 
   /// `remove`
@@ -178,27 +172,16 @@ class LocalStorage {
     required String key,
     String? boxName,
   }) async {
-    if (boxName != null) {
-      if (Hive.isBoxOpen(boxName)) {
-        final box = Hive.box<T>(boxName);
-        await _lock.synchronized(() => box.delete(key));
-      } else {
-        throw Exception('Please `openBox` before accessing it');
-      }
-    } else {
-      await _lock.synchronized(() => _cacheBox.delete(key));
-    }
+    return _lockGuard(() {
+      if (boxName == null) return _cacheBox.delete(key);
+      return Hive.box<T>(boxName).delete(key);
+    });
   }
 
   /// `values`
   /// get all the values from custom box
   List<T> values<T>(String boxName) {
-    if (Hive.isBoxOpen(boxName)) {
-      final box = Hive.box<T>(boxName);
-      return box.values.toList();
-    } else {
-      throw Exception('Please `openBox` before accessing it');
-    }
+    return _guard(() => Hive.box<T>(boxName).values.toList());
   }
 
   /// `add`
@@ -207,14 +190,10 @@ class LocalStorage {
     required String boxName,
     required T value,
   }) async {
-    if (Hive.isBoxOpen(boxName)) {
-      await _lock.synchronized(() {
-        final box = Hive.box<T>(boxName);
-        return box.add(value);
-      });
-    } else {
-      throw Exception('Please `openBox` before accessing it');
-    }
+    return _lockGuard(() async {
+      final box = Hive.box<T>(boxName);
+      await box.add(value);
+    });
   }
 
   /// `addAll`
@@ -223,14 +202,10 @@ class LocalStorage {
     required String boxName,
     required List<T> values,
   }) async {
-    if (Hive.isBoxOpen(boxName)) {
-      await _lock.synchronized(() {
-        final box = Hive.box<T>(boxName);
-        return box.addAll(values);
-      });
-    } else {
-      throw Exception('Please `openBox` before accessing it');
-    }
+    return _lockGuard(() async {
+      final box = Hive.box<T>(boxName);
+      await box.addAll(values);
+    });
   }
 
   /// `update`
@@ -241,15 +216,13 @@ class LocalStorage {
     required String boxName,
     required T value,
     bool Function(T)? filter,
-  }) async {
-    if (Hive.isBoxOpen(boxName)) {
+  }) {
+    return _lockGuard(() async {
       final box = Hive.box<T>(boxName);
       final data = box.values.firstWhereOrNull(filter ?? (element) => element == value);
-      if (data != null) await _lock.synchronized(() => data.delete());
-      await _lock.synchronized(() => box.add(value));
-    } else {
-      throw Exception('Please `openBox` before accessing it');
-    }
+      if (data != null) await data.delete();
+      await box.add(value);
+    });
   }
 
   /// `delete`
@@ -260,18 +233,16 @@ class LocalStorage {
     required String boxName,
     required T value,
     bool Function(T)? filter,
-  }) async {
-    if (Hive.isBoxOpen(boxName)) {
+  }) {
+    return _lockGuard(() {
       final box = Hive.box<T>(boxName);
       final data = box.values.firstWhereOrNull(filter ?? (element) => element == value);
-      await _lock.synchronized(() => data?.delete());
-    } else {
-      throw Exception('Please `openBox` before accessing it');
-    }
+      return data?.delete();
+    });
   }
 
   /// private getter to access session
-  Session? get _session => _sessionBox.values.firstOrNull;
+  Session? get _session => _guard(() => _sessionBox.values.firstOrNull);
 
   /// accessToken
   /// getter to access accessToken
@@ -289,33 +260,44 @@ class LocalStorage {
   /// getter to access updatedAt
   DateTime? get updatedAt => _session?.updatedAt;
 
+  /// remainingTokenDuration
+  /// returns remaining time of token
+  Duration get remainingTokenDuration {
+    return _guard(() {
+      if (!hasSession) return Duration.zero;
+      return JwtDecoder.getRemainingTime(_session!.accessToken);
+    });
+  }
+
   /// `onSessionChange`
   /// returns stream of [bool] when data changes on box
   Stream<bool> get onSessionChange {
-    return _sessionBox.watch().distinct().map<bool>((event) {
-      return event.value != null;
-    }).startWith(hasSession);
+    return _guard(
+        () => _sessionBox.watch().distinct().map<bool>((event) {
+              return event.value != null;
+            }).startWith(hasSession),
+        () => Stream.value(false));
   }
 
   /// `hasSession`
   /// checks whether `Box<Session>` is not empty or [Session] is not null
   bool get hasSession {
-    return _sessionBox.isNotEmpty && _session != null;
+    return _guard(() => _sessionBox.isNotEmpty && _session != null, () => false);
   }
 
   /// `saveToken`
   /// updates access token if exists or saves new one if not
   /// updates refresh token
-  Future<void> saveToken(String token, [String? refreshToken]) async {
-    _lock.synchronized(() async {
+  Future<void> saveToken(String token, [String? refreshToken]) {
+    return _lockGuard(() {
       if (hasSession) {
         _session!
           ..accessToken = token
           ..refreshToken = refreshToken
           ..updatedAt = DateTime.now();
-        await _session!.save();
+        return _session!.save();
       } else {
-        await _sessionBox.add(
+        return _sessionBox.add(
           Session()
             ..accessToken = token
             ..refreshToken = refreshToken
@@ -328,14 +310,16 @@ class LocalStorage {
   /// `isTokenExpired`
   /// checks whether token is expired or not
   bool? get isTokenExpired {
-    if (!hasSession) return null;
-    return JwtDecoder.isExpired(_session!.accessToken);
+    return _guard(() {
+      if (!hasSession) return null;
+      return JwtDecoder.isExpired(_session!.accessToken);
+    });
   }
 
   /// clearSession
   /// removes the [Session] value from [Box]
-  Future<void> clearSession() async {
-    await _lock.synchronized(() => _sessionBox.clear());
+  Future<void> clearSession() {
+    return _lockGuard(_sessionBox.clear);
   }
 
   /// watch
@@ -344,16 +328,11 @@ class LocalStorage {
     required String key,
     String? boxName,
   }) {
-    if (boxName != null) {
-      if (Hive.isBoxOpen(boxName)) {
-        final box = Hive.box<T>(boxName);
-        return box.watch(key: key).distinct().map<T?>((event) => event.value as T?);
-      } else {
-        throw Exception('$boxName is not yet opened, Please `openBox` before accessing it');
-      }
-    } else {
-      return _cacheBox.watch(key: key).distinct().map<T?>((event) => event.value as T?);
-    }
+    return _guard(() {
+      if (boxName == null) _cacheBox.watch(key: key).distinct().map<T?>((event) => event.value as T?);
+      final box = Hive.box<T>(boxName!);
+      return box.watch(key: key).distinct().map<T?>((event) => event.value as T?);
+    });
   }
 
   /// getList
@@ -362,14 +341,15 @@ class LocalStorage {
     required String key,
     List<T> defaultValue = const [],
   }) {
-    try {
-      final String encodedData = _cacheBox.get(key, defaultValue: '');
-      if (encodedData.isEmpty) return defaultValue;
-      final decodedData = jsonDecode(_cacheBox.get(key));
-      return List<T>.of(decodedData);
-    } catch (_) {
-      return defaultValue;
-    }
+    return _guard(
+      () {
+        final encodedData = _cacheBox.get(key, defaultValue: '');
+        if (encodedData.isEmpty) return defaultValue;
+        final decodedData = jsonDecode(encodedData);
+        return List<T>.of(decodedData);
+      },
+      () => defaultValue,
+    );
   }
 
   /// save list of data
@@ -377,8 +357,10 @@ class LocalStorage {
     required String key,
     required List<T> value,
   }) async {
-    final encodedData = jsonEncode(value);
-    return _cacheBox.put(key, encodedData);
+    return _lockGuard(() {
+      final encodedData = jsonEncode(value);
+      return _cacheBox.put(key, encodedData);
+    });
   }
 
   /// save
@@ -386,13 +368,13 @@ class LocalStorage {
   Future<void> putAll({
     required Map<String, dynamic> entries,
   }) async {
-    return _cacheBox.putAll(entries);
+    return _lockGuard(() => _cacheBox.putAll(entries));
   }
 
   /// clear
   /// clear all values from box
   Future<int> clear() async {
-    return _lock.synchronized(() => _cacheBox.clear());
+    return _lockGuard(_cacheBox.clear);
   }
 
   /// `writeAndClose`
@@ -403,17 +385,21 @@ class LocalStorage {
     required T value,
   }) async {
     return _lock.synchronized(() async {
-      /// open new box
-      final box = await Hive.openBox<T>(
-        boxName,
-        encryptionCipher: _encryptionCipher,
-      );
+      try {
+        /// open new box
+        final box = await Hive.openBox<T>(
+          boxName,
+          encryptionCipher: _encryptionCipher,
+        );
 
-      /// put value
-      await box.put(key, value);
+        /// put value
+        await box.put(key, value);
 
-      /// close the box
-      await box.close();
+        /// close the box
+        await box.close();
+      } catch (e, s) {
+        throw Error.throwWithStackTrace(e, s);
+      }
     });
   }
 
@@ -424,17 +410,21 @@ class LocalStorage {
     required String boxName,
   }) async {
     return _lock.synchronized(() async {
-      /// open new box
-      final box = await Hive.openBox<T>(boxName, encryptionCipher: _encryptionCipher);
+      try {
+        /// open new box
+        final box = await Hive.openBox<T>(boxName, encryptionCipher: _encryptionCipher);
 
-      /// get value
-      final value = box.get(key);
+        /// get value
+        final value = box.get(key);
 
-      /// close the box
-      await box.close();
+        /// close the box
+        await box.close();
 
-      /// return value
-      return value;
+        /// return value
+        return value;
+      } catch (e, s) {
+        throw Error.throwWithStackTrace(e, s);
+      }
     });
   }
 
@@ -442,24 +432,26 @@ class LocalStorage {
   /// clear all values from both session box and cache box
   /// does not clears box created using `openBox()`
   Future<void> clearAll() async {
-    return _lock.synchronized(() async {
-      await _sessionBox.clear();
-      await _cacheBox.clear();
+    return _lockGuard(() {
+      Future.wait([
+        _sessionBox.clear(),
+        _cacheBox.clear(),
+      ]);
     });
   }
 
   /// close all the opened box
   Future<void> closeAll() async {
-    await _lock.synchronized(() {
+    return _lockGuard(() {
       _sessionBox.close();
       _cacheBox.close();
-      Hive.close();
+      return Hive.close();
     });
   }
 
   /// delete all the opened box
-  Future<void> deleteAll() async {
-    await _lock.synchronized(() {
+  Future<void> deleteAll() {
+    return _lockGuard(() {
       _sessionBox.deleteFromDisk();
       _cacheBox.deleteFromDisk();
       Hive.deleteFromDisk();
@@ -468,4 +460,35 @@ class LocalStorage {
 
   /// convert box to map
   Map<String, Map<String, dynamic>?> toCacheMap() => Map.unmodifiable(_cacheBox.toMap());
+
+  /// common guard for all the methods
+  Future<T> _lockGuard<T>(
+    FutureOr<T> Function() action, [
+    FutureOr<T> Function()? onError,
+  ]) {
+    return _lock.synchronized(() async {
+      try {
+        return await action();
+      } catch (e, s) {
+        if (onError != null) {
+          return await onError();
+        } else {
+          throw Error.throwWithStackTrace(e, s);
+        }
+      }
+    });
+  }
+
+  /// guard for non async methods
+  T _guard<T>(T Function() action, [T Function()? onError]) {
+    try {
+      return action();
+    } catch (e, s) {
+      if (onError != null) {
+        return onError();
+      } else {
+        throw Error.throwWithStackTrace(e, s);
+      }
+    }
+  }
 }
