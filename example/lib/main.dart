@@ -1,13 +1,11 @@
 import 'dart:math';
 
-import 'package:example/adapters/contact.dart';
-import 'package:example/adapters/user.dart';
+import 'package:example/register_adapters.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_local_storage/hive_local_storage.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
   runApp(const MyApp());
 }
 
@@ -69,11 +67,10 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void _init() async {
-    _localStorage = await LocalStorage.getInstance(registerAdapters: () {
-      Hive
-        ..registerAdapter(UserAdapter())
-        ..registerAdapter(ContactAdapter());
-    });
+    _localStorage = await LocalStorage.getInstance(
+      storageDirectory: 'example',
+      registerAdapters: registerAdapters,
+    );
     _counter = _localStorage.get<int>(key: 'counter', defaultValue: 0)!;
 
     _localStorage.watchKey<int>(key: 'counter').listen((event) {
