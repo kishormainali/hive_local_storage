@@ -5,13 +5,13 @@ import 'dart:convert';
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:hive_local_storage/src/encryption_helper.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:synchronized/synchronized.dart';
 
-import 'jwt_decoder.dart';
+import '_encryption_helper.dart';
+import '_jwt_decoder.dart';
 import 'session.dart';
 
 /// {@template local_storage}
@@ -212,16 +212,18 @@ class LocalStorage {
   /// update item from data
   ///
   /// only supports [HiveObject] type
-  Future<void> update<T extends HiveObject>({
+  Future<void> update<T>({
     required String boxName,
     required T value,
     bool Function(T)? filter,
   }) {
     return _lockGuard(() async {
       final box = Hive.box<T>(boxName);
-      final data = box.values.firstWhereOrNull(filter ?? (element) => element == value);
-      if (data != null) await data.delete();
-      await box.add(value);
+      final values = box.values.toList();
+      values.removeWhere(filter ?? (element) => element == value);
+      values.add(value);
+      await box.clear();
+      await box.addAll(values);
     });
   }
 
@@ -229,15 +231,17 @@ class LocalStorage {
   /// delete item from data
   ///
   /// only supports [HiveObject] type
-  Future<void> delete<T extends HiveObject>({
+  Future<void> delete<T>({
     required String boxName,
     required T value,
     bool Function(T)? filter,
   }) {
-    return _lockGuard(() {
+    return _lockGuard(() async {
       final box = Hive.box<T>(boxName);
-      final data = box.values.firstWhereOrNull(filter ?? (element) => element == value);
-      return data?.delete();
+      final values = box.values.toList();
+      values.removeWhere(filter ?? (element) => element == value);
+      await box.clear();
+      await box.addAll(values);
     });
   }
 
@@ -289,7 +293,7 @@ class LocalStorage {
   /// updates access token if exists or saves new one if not
   /// updates refresh token
   Future<void> saveToken(String token, [String? refreshToken]) {
-    return _lockGuard(() {
+    return _lockGuard(() async {
       if (hasSession) {
         _session!
           ..accessToken = token
@@ -297,12 +301,12 @@ class LocalStorage {
           ..updatedAt = DateTime.now();
         return _session!.save();
       } else {
-        return _sessionBox.add(
-          Session()
-            ..accessToken = token
-            ..refreshToken = refreshToken
-            ..createdAt = DateTime.now(),
-        );
+        final session = Session()
+          ..accessToken = token
+          ..refreshToken = refreshToken
+          ..createdAt = DateTime.now();
+        await _sessionBox.clear();
+        await _sessionBox.add(session);
       }
     });
   }
@@ -329,8 +333,8 @@ class LocalStorage {
     String? boxName,
   }) {
     return _guard(() {
-      if (boxName == null) _cacheBox.watch(key: key).distinct().map<T?>((event) => event.value as T?);
-      final box = Hive.box<T>(boxName!);
+      if (boxName == null) return _cacheBox.watch(key: key).distinct().map<T?>((event) => event.value as T?);
+      final box = Hive.box<T>(boxName);
       return box.watch(key: key).distinct().map<T?>((event) => event.value as T?);
     });
   }
@@ -443,18 +447,22 @@ class LocalStorage {
   /// close all the opened box
   Future<void> closeAll() async {
     return _lockGuard(() {
-      _sessionBox.close();
-      _cacheBox.close();
-      return Hive.close();
+      Future.wait([
+        _sessionBox.close(),
+        _cacheBox.close(),
+        Hive.close(),
+      ]);
     });
   }
 
   /// delete all the opened box
   Future<void> deleteAll() {
     return _lockGuard(() {
-      _sessionBox.deleteFromDisk();
-      _cacheBox.deleteFromDisk();
-      Hive.deleteFromDisk();
+      Future.wait([
+        _sessionBox.deleteFromDisk(),
+        _cacheBox.deleteFromDisk(),
+        Hive.deleteFromDisk(),
+      ]);
     });
   }
 

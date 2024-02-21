@@ -6,6 +6,7 @@ part 'session.g.dart';
 class Session extends HiveObject {
   @HiveField(0)
   late String accessToken;
+
   @HiveField(1)
   String? refreshToken;
 
