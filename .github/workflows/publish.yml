@@ -1,0 +1,47 @@
+# .github/workflows/publish.yml
+name: Publish to pub.dev
+on:
+  push:
+    tags:
+    - 'v[0-9]+.[0-9]+.[0-9]+*' # for tags like: 'v1.2.3'
+    - 'v[0-9]+.[0-9]+.[0-9]+*-dev.[0-9]+' # for tags like: 'v1.2.3-dev.1'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: 📚 Git Checkout
+        uses: actions/checkout@v4
+
+      - name: 🐦 Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: 📦 Install Dependencies
+        run: flutter pub get
+
+      - name: 🔐 Setup Pub Credentials
+        run: |
+          mkdir -p $XDG_CONFIG_HOME/dart
+          echo  "$XDG_CONFIG_HOME/dart/pub-credentials.json"
+          cat <<EOF > "$XDG_CONFIG_HOME/dart/pub-credentials.json"
+          {
+            "accessToken":"${{ secrets.OAUTH_ACCESS_TOKEN }}",
+            "refreshToken":"${{ secrets.OAUTH_REFRESH_TOKEN }}",
+            "tokenEndpoint":"${{ secrets.OAUTH_TOKEN_ENDPOINT }}",
+            "scopes": ${{ secrets.OAUTH_SCOPE }},
+            "expiration": ${{ secrets.OAUTH_EXPIRY_TIME }}
+          }
+          EOF
+
+      - name: 📝 Format Code
+        run: dart format .
+
+      - name: 📝 Analyze Code
+        run: dart analyze .
+
+      - name: 🚀 Publish package
+        run: dart pub publish -f
