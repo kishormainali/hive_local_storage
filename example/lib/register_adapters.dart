@@ -10,6 +10,6 @@ import 'package:hive_local_storage/hive_local_storage.dart';
 
 void registerAdapters() {
   Hive
-    ..registerAdapter<Contact>(ContactAdapter())
-    ..registerAdapter<User>(UserAdapter());
+    ..registerAdapter(ContactAdapter())
+    ..registerAdapter(UserAdapter());
 }

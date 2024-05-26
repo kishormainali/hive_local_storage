@@ -4,7 +4,7 @@ import 'dart:convert';
 // ignore: depend_on_referenced_packages
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
-import 'package:hive_flutter/hive_flutter.dart';
+import 'package:hive/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:rxdart/rxdart.dart';
@@ -225,7 +225,6 @@ class LocalStorage {
       await box.clear();
       await box.addAll(values);
     });
-
   }
 
   /// `delete`
@@ -396,6 +395,7 @@ class LocalStorage {
           boxName,
           encryptionCipher: _encryptionCipher,
         );
+
         /// put value
         await box.put(key, value);
 
@@ -420,7 +420,6 @@ class LocalStorage {
 
         /// get value
         final value = box.get(key);
-
 
         /// close the box
         await box.close();
@@ -500,5 +499,4 @@ class LocalStorage {
       }
     }
   }
-
 }
