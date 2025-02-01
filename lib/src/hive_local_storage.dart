@@ -63,7 +63,9 @@ class LocalStorage {
   /// [FlutterSecureStorage] storage for storing encryption key
   static const FlutterSecureStorage _storage = FlutterSecureStorage(
     aOptions: AndroidOptions(encryptedSharedPreferences: true),
-    iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock_this_device),
+    iOptions: IOSOptions(
+      accessibility: KeychainAccessibility.first_unlock_this_device,
+    ),
   );
 
   /// [Box] session box
@@ -85,14 +87,17 @@ class LocalStorage {
   static Future<LocalStorage> getInstance({
     void Function()? registerAdapters,
     HiveCipher? customCipher,
+    String? storageDirectory,
   }) async {
     WidgetsFlutterBinding.ensureInitialized();
     await _lock.synchronized(() async {
-      await Hive.initFlutter();
+      await Hive.initFlutter(storageDirectory);
       Hive.registerAdapter(SessionAdapter());
       registerAdapters?.call();
-      _sessionBox = await Hive.openBox<Session>(sessionKey, encryptionCipher: await _cipher(customCipher));
-      _cacheBox = await Hive.openBox(cacheKey, encryptionCipher: await _cipher(customCipher));
+      _sessionBox = await Hive.openBox<Session>(sessionKey,
+          encryptionCipher: await _cipher(customCipher));
+      _cacheBox = await Hive.openBox(cacheKey,
+          encryptionCipher: await _cipher(customCipher));
     });
     return LocalStorage._();
   }
@@ -263,7 +268,8 @@ class LocalStorage {
   }) async {
     if (Hive.isBoxOpen(boxName)) {
       final box = Hive.box<T>(boxName);
-      final data = box.values.firstWhereOrNull(filter ?? (element) => element == value);
+      final data =
+          box.values.firstWhereOrNull(filter ?? (element) => element == value);
       if (data != null) await _lock.synchronized(() => data.delete());
       await _lock.synchronized(() => box.add(value));
     } else {
@@ -282,7 +288,8 @@ class LocalStorage {
   }) async {
     if (Hive.isBoxOpen(boxName)) {
       final box = Hive.box<T>(boxName);
-      final data = box.values.firstWhereOrNull(filter ?? (element) => element == value);
+      final data =
+          box.values.firstWhereOrNull(filter ?? (element) => element == value);
       await _lock.synchronized(() => data?.delete());
     } else {
       throw Exception('Please `openBox` before accessing it');
@@ -366,12 +373,19 @@ class LocalStorage {
     if (boxName != null) {
       if (Hive.isBoxOpen(boxName)) {
         final box = Hive.box<T>(boxName);
-        return box.watch(key: key).distinct().map<T?>((event) => event.value as T?);
+        return box
+            .watch(key: key)
+            .distinct()
+            .map<T?>((event) => event.value as T?);
       } else {
-        throw Exception('$boxName is not yet opened, Please `openBox` before accessing it');
+        throw Exception(
+            '$boxName is not yet opened, Please `openBox` before accessing it');
       }
     } else {
-      return _cacheBox.watch(key: key).distinct().map<T?>((event) => event.value as T?);
+      return _cacheBox
+          .watch(key: key)
+          .distinct()
+          .map<T?>((event) => event.value as T?);
     }
   }
 
@@ -423,7 +437,8 @@ class LocalStorage {
   }) async {
     return _lock.synchronized(() async {
       /// open new box
-      final box = await Hive.openBox<T>(boxName, encryptionCipher: await _cipher(null));
+      final box =
+          await Hive.openBox<T>(boxName, encryptionCipher: await _cipher(null));
 
       /// put value
       await box.put(key, value);
@@ -441,7 +456,8 @@ class LocalStorage {
   }) async {
     return _lock.synchronized(() async {
       /// open new box
-      final box = await Hive.openBox<T>(boxName, encryptionCipher: await _cipher(null));
+      final box =
+          await Hive.openBox<T>(boxName, encryptionCipher: await _cipher(null));
       final value = box.get(key);
 
       /// close the box
@@ -481,5 +497,6 @@ class LocalStorage {
   }
 
   /// convert box to map
-  Map<String, Map<String, dynamic>?> toCacheMap() => Map.unmodifiable(_cacheBox.toMap());
+  Map<String, Map<String, dynamic>?> toCacheMap() =>
+      Map.unmodifiable(_cacheBox.toMap());
 }
