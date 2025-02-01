@@ -3,3 +3,8 @@ include: package:flutter_lints/flutter.yaml
 analyzer:
   exclude:
     - lib/**.g.dart
+
+linter:
+  rules:
+    - avoid_print
+    - require_trailing_commas

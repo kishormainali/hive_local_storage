@@ -31,7 +31,10 @@ class EncryptionHelper {
     var keyString = await _flutterSecureStorage.read(key: _keyName);
     if (keyString == null) {
       final key = Hive.generateSecureKey();
-      await _flutterSecureStorage.write(key: _keyName, value: base64UrlEncode(key));
+      await _flutterSecureStorage.write(
+        key: _keyName,
+        value: base64UrlEncode(key),
+      );
       encryptionKey = Uint8List.fromList(key);
     } else {
       encryptionKey = base64Url.decode(keyString);

@@ -53,10 +53,10 @@ class LocalStorage {
   static final _lock = Lock();
 
   /// session key
-  static const String sessionKey = '__JWT_SESSION_KEY__';
+  static const String _sessionKey = '__JWT_SESSION_KEY__';
 
   /// cache key
-  static const String cacheKey = '__CACHE_KEY__';
+  static const String _cacheKey = '__CACHE_KEY__';
 
   /// [Box] session box
   static late Box<Session> _sessionBox;
@@ -96,8 +96,14 @@ class LocalStorage {
       Hive.registerAdapter(SessionAdapter());
       registerAdapters?.call();
       _encryptionCipher = await EncryptionHelper.hiveCipher(customCipher);
-      _sessionBox = await Hive.openBox<Session>(sessionKey, encryptionCipher: _encryptionCipher);
-      _cacheBox = await Hive.openBox(cacheKey, encryptionCipher: _encryptionCipher);
+      _sessionBox = await Hive.openBox<Session>(
+        _sessionKey,
+        encryptionCipher: _encryptionCipher,
+      );
+      _cacheBox = await Hive.openBox(
+        _cacheKey,
+        encryptionCipher: _encryptionCipher,
+      );
     });
     return LocalStorage._();
   }
@@ -129,7 +135,10 @@ class LocalStorage {
   Future<Box<T>> getBox<T>(String name) async {
     return _lockGuard(
       () => Hive.box<T>(name),
-      () => Hive.openBox<T>(name, encryptionCipher: _encryptionCipher),
+      () => Hive.openBox<T>(
+        name,
+        encryptionCipher: _encryptionCipher,
+      ),
     );
   }
 
@@ -157,12 +166,22 @@ class LocalStorage {
     T? defaultValue,
     String? boxName,
   }) {
-    return _guard(() {
-      if (boxName == null) return _cacheBox.get(key, defaultValue: defaultValue);
-      return Hive.box(boxName).get(key, defaultValue: defaultValue);
-    }, () {
-      return defaultValue;
-    });
+    return _guard(
+      () {
+        if (boxName == null) {
+          return _cacheBox.get(
+            key,
+            defaultValue: defaultValue,
+          );
+        } else {
+          return Hive.box(boxName).get(
+            key,
+            defaultValue: defaultValue,
+          );
+        }
+      },
+      () => defaultValue,
+    );
   }
 
   /// `remove`
@@ -277,16 +296,20 @@ class LocalStorage {
   /// returns stream of [bool] when data changes on box
   Stream<bool> get onSessionChange {
     return _guard(
-        () => _sessionBox.watch().distinct().map<bool>((event) {
-              return event.value != null;
-            }).startWith(hasSession),
-        () => Stream.value(false));
+      () => _sessionBox.watch().distinct().map<bool>((event) {
+        return event.value != null;
+      }).startWith(hasSession),
+      () => Stream.value(false),
+    );
   }
 
   /// `hasSession`
   /// checks whether `Box<Session>` is not empty or [Session] is not null
   bool get hasSession {
-    return _guard(() => _sessionBox.isNotEmpty && _session != null, () => false);
+    return _guard(
+      () => _sessionBox.isNotEmpty && _session != null,
+      () => false,
+    );
   }
 
   /// `saveToken`
@@ -333,9 +356,18 @@ class LocalStorage {
     String? boxName,
   }) {
     return _guard(() {
-      if (boxName == null) return _cacheBox.watch(key: key).distinct().map<T?>((event) => event.value as T?);
-      final box = Hive.box<T>(boxName);
-      return box.watch(key: key).distinct().map<T?>((event) => event.value as T?);
+      if (boxName == null) {
+        return _cacheBox
+            .watch(key: key)
+            .distinct()
+            .map<T?>((event) => event.value as T?);
+      } else {
+        final box = Hive.box<T>(boxName);
+        return box
+            .watch(key: key)
+            .distinct()
+            .map<T?>((event) => event.value as T?);
+      }
     });
   }
 
@@ -416,7 +448,10 @@ class LocalStorage {
     return _lock.synchronized(() async {
       try {
         /// open new box
-        final box = await Hive.openBox<T>(boxName, encryptionCipher: _encryptionCipher);
+        final box = await Hive.openBox<T>(
+          boxName,
+          encryptionCipher: _encryptionCipher,
+        );
 
         /// get value
         final value = box.get(key);
@@ -467,7 +502,10 @@ class LocalStorage {
   }
 
   /// convert box to map
-  Map<String, Map<String, dynamic>?> toCacheMap() => Map.unmodifiable(_cacheBox.toMap());
+  Map<String, Map<String, dynamic>?> toMap([String? boxName]) {
+    if (boxName == null) return Map.unmodifiable(_cacheBox.toMap());
+    return Map.unmodifiable(Hive.box(boxName).toMap());
+  }
 
   /// common guard for all the methods
   Future<T> _lockGuard<T>(
