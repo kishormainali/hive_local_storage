@@ -111,16 +111,24 @@ class LocalStorage {
   /// HiveAesCipher encryptionKey
   /// encryption key to secure session box
   static Future<HiveAesCipher> get _encryptionKey async {
-    late Uint8List encryptionKey;
-    var keyString = await _storage.read(key: encryptionBoxKey);
-    if (keyString == null) {
-      final key = Hive.generateSecureKey();
-      await _storage.write(key: encryptionBoxKey, value: base64UrlEncode(key));
-      encryptionKey = Uint8List.fromList(key);
-    } else {
-      encryptionKey = base64Url.decode(keyString);
+    try {
+      late Uint8List encryptionKey;
+      var keyString = await _storage.read(key: encryptionBoxKey);
+      encryptionKey = keyString == null
+          ? await _newEncryptionkey
+          : base64Url.decode(keyString);
+      return HiveAesCipher(encryptionKey);
+    } on PlatformException catch (_) {
+      await _storage.deleteAll();
+      return HiveAesCipher(await _newEncryptionkey);
     }
-    return HiveAesCipher(encryptionKey);
+  }
+
+  /// Generate new encryption key
+  static Future<Uint8List> get _newEncryptionkey async {
+    final newKey = Hive.generateSecureKey();
+    await _storage.write(key: encryptionBoxKey, value: base64UrlEncode(newKey));
+    return Uint8List.fromList(newKey);
   }
 
   /// `openBox`
