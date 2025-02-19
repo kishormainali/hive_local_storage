@@ -1,23 +1,52 @@
-import 'package:hive/hive.dart';
+// ignore_for_file: must_be_immutable
 
-part 'session.g.dart';
+import 'package:equatable/equatable.dart';
+import 'package:hive_ce/hive.dart';
 
-@HiveType(typeId: 0, adapterName: 'SessionAdapter')
-class Session extends HiveObject {
-  @HiveField(0)
-  late String accessToken;
+/// {@template session}
+/// A class that represents a session.
+/// {@endtemplate}
+class Session extends HiveObject with EquatableMixin {
+  /// {@macro session}
+  Session({
+    required this.accessToken,
+    this.refreshToken = '',
+    this.createdAt,
+    this.updatedAt,
+  });
 
-  @HiveField(1)
-  String? refreshToken;
+  /// The access token.
+  final String accessToken;
 
-  @HiveField(2)
-  DateTime? createdAt;
+  /// The refresh token.
+  final String refreshToken;
 
-  @HiveField(3)
-  DateTime? updatedAt;
+  /// The date and time the session was created.
+  final DateTime? createdAt;
+
+  /// The date and time the session was last updated.
+  final DateTime? updatedAt;
+
+  /// copyWith
+  Session copyWith({
+    String? accessToken,
+    String? refreshToken,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return Session(
+      accessToken: accessToken ?? this.accessToken,
+      refreshToken: refreshToken ?? this.refreshToken,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
 
   @override
-  String toString() {
-    return 'Session{accessToken: $accessToken, refreshToken: $refreshToken , createdAt: $createdAt, updatedAt: $updatedAt}';
-  }
+  List<Object?> get props => [
+        accessToken,
+        refreshToken,
+        createdAt,
+        updatedAt,
+      ];
 }

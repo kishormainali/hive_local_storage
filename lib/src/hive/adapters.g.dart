@@ -1,37 +1,41 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
 
-part of 'user.dart';
+part of 'adapters.dart';
 
 // **************************************************************************
-// TypeAdapterGenerator
+// AdaptersGenerator
 // **************************************************************************
 
-class UserAdapter extends TypeAdapter<User> {
+class SessionAdapter extends TypeAdapter<Session> {
   @override
-  final int typeId = 3;
+  final int typeId = 0;
 
   @override
-  User read(BinaryReader reader) {
+  Session read(BinaryReader reader) {
     final numOfFields = reader.readByte();
     final fields = <int, dynamic>{
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
-    return User()
-      ..name = fields[0] as String
-      ..address = fields[1] as String
-      ..users = (fields[2] as List).cast<User>();
+    return Session(
+      accessToken: fields[0] as String,
+      refreshToken: fields[1] == null ? '' : fields[1] as String,
+      createdAt: fields[2] as DateTime?,
+      updatedAt: fields[3] as DateTime?,
+    );
   }
 
   @override
-  void write(BinaryWriter writer, User obj) {
+  void write(BinaryWriter writer, Session obj) {
     writer
-      ..writeByte(3)
+      ..writeByte(4)
       ..writeByte(0)
-      ..write(obj.name)
+      ..write(obj.accessToken)
       ..writeByte(1)
-      ..write(obj.address)
+      ..write(obj.refreshToken)
       ..writeByte(2)
-      ..write(obj.users);
+      ..write(obj.createdAt)
+      ..writeByte(3)
+      ..write(obj.updatedAt);
   }
 
   @override
@@ -40,7 +44,7 @@ class UserAdapter extends TypeAdapter<User> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is UserAdapter &&
+      other is SessionAdapter &&
           runtimeType == other.runtimeType &&
           typeId == other.typeId;
 }

@@ -3,14 +3,13 @@ name: Publish to pub.dev
 on:
   push:
     tags:
-    - 'v[0-9]+.[0-9]+.[0-9]+*' # for tags like: 'v1.2.3'
-    - 'v[0-9]+.[0-9]+.[0-9]+*-dev.[0-9]+' # for tags like: 'v1.2.3-dev.1'
+      - "v[0-9]+.[0-9]+.[0-9]+*" # for tags like: 'v1.2.3'
+      - "v[0-9]+.[0-9]+.[0-9]+*-dev.[0-9]+" # for tags like: 'v1.2.3-dev.1'
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-
       - name: 📚 Git Checkout
         uses: actions/checkout@v4
 

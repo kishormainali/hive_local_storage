@@ -4,7 +4,7 @@ import 'dart:convert';
 // ignore: depend_on_referenced_packages
 import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
-import 'package:hive/hive.dart';
+import 'package:hive_ce/hive.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:rxdart/rxdart.dart';
@@ -12,6 +12,7 @@ import 'package:synchronized/synchronized.dart';
 
 import '_encryption_helper.dart';
 import '_jwt_decoder.dart';
+import 'hive/hive_registrar.g.dart';
 import 'session.dart';
 
 /// {@template local_storage}
@@ -93,7 +94,7 @@ class LocalStorage {
         _storagePath = p.join(_storagePath!, storageDirectory);
       }
       Hive.init(_storagePath);
-      Hive.registerAdapter(SessionAdapter());
+      Hive.registerAdapters();
       registerAdapters?.call();
       _encryptionCipher = await EncryptionHelper.hiveCipher(customCipher);
       _sessionBox = await Hive.openBox<Session>(
@@ -318,16 +319,18 @@ class LocalStorage {
   Future<void> saveToken(String token, [String? refreshToken]) {
     return _lockGuard(() async {
       if (hasSession) {
-        _session!
-          ..accessToken = token
-          ..refreshToken = refreshToken
-          ..updatedAt = DateTime.now();
-        return _session!.save();
+        final newSession = _session!.copyWith(
+          accessToken: token,
+          refreshToken: refreshToken ?? _session!.refreshToken,
+          updatedAt: DateTime.now(),
+        );
+        return newSession.save();
       } else {
-        final session = Session()
-          ..accessToken = token
-          ..refreshToken = refreshToken
-          ..createdAt = DateTime.now();
+        final session = Session(
+          accessToken: token,
+          refreshToken: refreshToken ?? '',
+          createdAt: DateTime.now(),
+        );
         await _sessionBox.clear();
         await _sessionBox.add(session);
       }

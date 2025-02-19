@@ -1,6 +1,6 @@
 # example
 
-A example project for local storage
+A new Flutter project.
 
 ## Getting Started
 
