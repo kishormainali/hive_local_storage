@@ -1,3 +1,7 @@
+## 1.1.3
+
+- clear all storage keys on platform exception.
+
 ## 1.1.2
 
 - add storage directory path in `LocalStorage.getInstance` method
