@@ -7,4 +7,3 @@ analyzer:
 linter:
   rules:
     - avoid_print
-    - require_trailing_commas

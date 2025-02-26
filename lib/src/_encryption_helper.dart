@@ -13,9 +13,7 @@ class EncryptionHelper {
     iOptions: IOSOptions(
       accessibility: KeychainAccessibility.first_unlock_this_device,
     ),
-    aOptions: AndroidOptions(
-      encryptedSharedPreferences: true,
-    ),
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
   );
 
   /// returns encryption cipher for boxes
@@ -27,18 +25,28 @@ class EncryptionHelper {
   /// HiveAesCipher encryptionKey
   /// encryption key to secure session box
   static Future<HiveAesCipher> get _encryptionKey async {
-    late Uint8List encryptionKey;
-    var keyString = await _flutterSecureStorage.read(key: _keyName);
-    if (keyString == null) {
-      final key = Hive.generateSecureKey();
+    try {
+      late Uint8List encryptionKey;
+      var keyString = await _flutterSecureStorage.read(key: _keyName);
+      if (keyString == null) {
+        final key = Hive.generateSecureKey();
+        await _flutterSecureStorage.write(
+          key: _keyName,
+          value: base64UrlEncode(key),
+        );
+        encryptionKey = Uint8List.fromList(key);
+      } else {
+        encryptionKey = base64Url.decode(keyString);
+      }
+      return HiveAesCipher(encryptionKey);
+    } catch (_) {
+      await _flutterSecureStorage.deleteAll();
+      final bytes = Uint8List.fromList(Hive.generateSecureKey());
       await _flutterSecureStorage.write(
         key: _keyName,
-        value: base64UrlEncode(key),
+        value: base64UrlEncode(bytes),
       );
-      encryptionKey = Uint8List.fromList(key);
-    } else {
-      encryptionKey = base64Url.decode(keyString);
+      return HiveAesCipher(bytes);
     }
-    return HiveAesCipher(encryptionKey);
   }
 }

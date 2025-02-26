@@ -114,7 +114,8 @@ class LocalStorage {
   FutureOr<Box<T>> openBox<T>({
     required String boxName,
     @Deprecated('''use customCipher from getInstance() method instead
-      will be removed in next version''') HiveCipher? customCipher,
+      will be removed in next version''')
+    HiveCipher? customCipher,
     int? typeId,
   }) async {
     assert(typeId != 0, 'typeId 0 is already occupied by session');
@@ -123,10 +124,7 @@ class LocalStorage {
     }
     return _lockGuard(() {
       customCipher ??= _encryptionCipher;
-      return Hive.openBox<T>(
-        boxName,
-        encryptionCipher: customCipher,
-      );
+      return Hive.openBox<T>(boxName, encryptionCipher: customCipher);
     });
   }
 
@@ -136,10 +134,7 @@ class LocalStorage {
   Future<Box<T>> getBox<T>(String name) async {
     return _lockGuard(
       () => Hive.box<T>(name),
-      () => Hive.openBox<T>(
-        name,
-        encryptionCipher: _encryptionCipher,
-      ),
+      () => Hive.openBox<T>(name, encryptionCipher: _encryptionCipher),
     );
   }
 
@@ -162,36 +157,20 @@ class LocalStorage {
   /// returns [defaultValue] if [key] is not found
   /// returns null if [defaultValue] is not provided
   /// if [boxName] is provided then it will get data from custom box
-  T? get<T>({
-    required String key,
-    T? defaultValue,
-    String? boxName,
-  }) {
-    return _guard(
-      () {
-        if (boxName == null) {
-          return _cacheBox.get(
-            key,
-            defaultValue: defaultValue,
-          );
-        } else {
-          return Hive.box(boxName).get(
-            key,
-            defaultValue: defaultValue,
-          );
-        }
-      },
-      () => defaultValue,
-    );
+  T? get<T>({required String key, T? defaultValue, String? boxName}) {
+    return _guard(() {
+      if (boxName == null) {
+        return _cacheBox.get(key, defaultValue: defaultValue);
+      } else {
+        return Hive.box(boxName).get(key, defaultValue: defaultValue);
+      }
+    }, () => defaultValue);
   }
 
   /// `remove`
   /// removes data from cache box
   /// if [boxName] is provided then it will remove data from custom box
-  Future<void> remove<T>({
-    required String key,
-    String? boxName,
-  }) async {
+  Future<void> remove<T>({required String key, String? boxName}) async {
     return _lockGuard(() {
       if (boxName == null) return _cacheBox.delete(key);
       return Hive.box<T>(boxName).delete(key);
@@ -206,10 +185,7 @@ class LocalStorage {
 
   /// `add`
   /// add data to custom box
-  Future<void> add<T>({
-    required String boxName,
-    required T value,
-  }) async {
+  Future<void> add<T>({required String boxName, required T value}) async {
     return _lockGuard(() async {
       final box = Hive.box<T>(boxName);
       await box.add(value);
@@ -297,9 +273,13 @@ class LocalStorage {
   /// returns stream of [bool] when data changes on box
   Stream<bool> get onSessionChange {
     return _guard(
-      () => _sessionBox.watch().distinct().map<bool>((event) {
-        return event.value != null;
-      }).startWith(hasSession),
+      () => _sessionBox
+          .watch()
+          .distinct()
+          .map<bool>((event) {
+            return event.value != null;
+          })
+          .startWith(hasSession),
       () => Stream.value(false),
     );
   }
@@ -316,24 +296,15 @@ class LocalStorage {
   /// `saveToken`
   /// updates access token if exists or saves new one if not
   /// updates refresh token
-  Future<void> saveToken(String token, [String? refreshToken]) {
+  Future<void> saveToken(String token, [String refreshToken = '']) {
     return _lockGuard(() async {
-      if (hasSession) {
-        final newSession = _session!.copyWith(
-          accessToken: token,
-          refreshToken: refreshToken ?? _session!.refreshToken,
-          updatedAt: DateTime.now(),
-        );
-        return newSession.save();
-      } else {
-        final session = Session(
-          accessToken: token,
-          refreshToken: refreshToken ?? '',
-          createdAt: DateTime.now(),
-        );
-        await _sessionBox.clear();
-        await _sessionBox.add(session);
-      }
+      final session = Session(
+        accessToken: token,
+        refreshToken: refreshToken,
+        createdAt: DateTime.now(),
+      );
+      await _sessionBox.clear();
+      await _sessionBox.add(session);
     });
   }
 
@@ -354,10 +325,7 @@ class LocalStorage {
 
   /// watch
   /// watch specific key for value changed
-  Stream<T?> watchKey<T>({
-    required String key,
-    String? boxName,
-  }) {
+  Stream<T?> watchKey<T>({required String key, String? boxName}) {
     return _guard(() {
       if (boxName == null) {
         return _cacheBox
@@ -376,26 +344,17 @@ class LocalStorage {
 
   /// getList
   /// get list data
-  List<T> getList<T>({
-    required String key,
-    List<T> defaultValue = const [],
-  }) {
-    return _guard(
-      () {
-        final encodedData = _cacheBox.get(key, defaultValue: '');
-        if (encodedData.isEmpty) return defaultValue;
-        final decodedData = jsonDecode(encodedData);
-        return List<T>.of(decodedData);
-      },
-      () => defaultValue,
-    );
+  List<T> getList<T>({required String key, List<T> defaultValue = const []}) {
+    return _guard(() {
+      final encodedData = _cacheBox.get(key, defaultValue: '');
+      if (encodedData.isEmpty) return defaultValue;
+      final decodedData = jsonDecode(encodedData);
+      return List<T>.of(decodedData);
+    }, () => defaultValue);
   }
 
   /// save list of data
-  Future<void> putList<T>({
-    required String key,
-    required List<T> value,
-  }) async {
+  Future<void> putList<T>({required String key, required List<T> value}) async {
     return _lockGuard(() {
       final encodedData = jsonEncode(value);
       return _cacheBox.put(key, encodedData);
@@ -404,9 +363,7 @@ class LocalStorage {
 
   /// save
   /// puts value in box with [key]
-  Future<void> putAll({
-    required Map<String, dynamic> entries,
-  }) async {
+  Future<void> putAll({required Map<String, dynamic> entries}) async {
     return _lockGuard(() => _cacheBox.putAll(entries));
   }
 
@@ -475,21 +432,14 @@ class LocalStorage {
   /// does not clears box created using `openBox()`
   Future<void> clearAll() async {
     return _lockGuard(() {
-      Future.wait([
-        _sessionBox.clear(),
-        _cacheBox.clear(),
-      ]);
+      Future.wait([_sessionBox.clear(), _cacheBox.clear()]);
     });
   }
 
   /// close all the opened box
   Future<void> closeAll() async {
     return _lockGuard(() {
-      Future.wait([
-        _sessionBox.close(),
-        _cacheBox.close(),
-        Hive.close(),
-      ]);
+      Future.wait([_sessionBox.close(), _cacheBox.close(), Hive.close()]);
     });
   }
 
