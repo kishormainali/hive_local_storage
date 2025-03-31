@@ -19,12 +19,12 @@ if you want to use custom class for hive you need to add hive_generator in your 
 ```yaml
 dev_dependencies:
   build_runner: latest
-  hive_generator: latest
+  hive_ce_generator: latest
 ```
 
 ### Usage
 
-``` dart
+```dart
   import 'package:hive_local_storage/hive_local_storage.dart';
 ```
 
@@ -32,13 +32,14 @@ dev_dependencies:
 
 NOTE: avoid using typeId=0 for data classes because typeId=0 is already used by session class.
 
-``` dart
+```dart
   final localStorage = await LocalStorage.getInstance(registerAdapters:(){
     Hive..registerAdapter(adapter1)..registerAdapter(adapter2);
   });
 ```
 
 ### Session
+
 hive_local_storage provides easy mechanism to store session using encrypted box
 
 - #### Store Session
@@ -47,6 +48,7 @@ hive_local_storage provides easy mechanism to store session using encrypted box
     await storage.saveToken('accessToken','refreshToken'); // refreshToken is optional
   ```
 - #### Get Session
+
   ```dart
      final storage = await LocalStorage.getInstance();
      /// get access token
@@ -69,26 +71,26 @@ hive_local_storage provides easy mechanism to store session using encrypted box
     final isTokenExpired = locaStorage.isTokenExpired;
 
   ```
+
 - ### Remove Session
   ```dart
     final storage = await LocalStorage.getInstance();
     storage.clearSession();
   ```
 
-
 ### Opening Custom Boxes
 
 This is useful when you want to store hive objects directly
 to use this method you need to register adapter for hive objects in initialization
 
-``` dart
+```dart
     /// typeId must between 1-223
     @HiveType(typeId:1,adapterName:'TestAdapter')
     class TestModel extends HiveObject{
-  
+
         @HiveField(0)
         late String firstName;
-        
+
         /// rest of fields
     }
 
@@ -98,38 +100,38 @@ to use this method you need to register adapter for hive objects in initializati
 
 ### Read From Custom Box
 
-``` dart 
+```dart
    final localStorage = await LocalStorage.getInstance();
    List<TestModel> data = localStorage.values<TestModel>('__TEST_BOX__');
 ```
 
 ### Write data to Custom Box
 
-``` dart 
+```dart
    final localStorage = await LocalStorage.getInstance();
     void storeData() async {
       /// store single data
       final testModel = TestModel();
       await localStorage.add<TestModel>(boxName: '__TEST_BOX__',value:testModel);
-      
+
       /// store multipleData
       final listData = <TestModel>[TestModel(),TestModel()];
       await localStorage.addAll<TestModel>(boxName: '__TEST_BOX__',values:listData);
     }
 ```
 
-### delete data from Custom Box 
+### delete data from Custom Box
 
-``` dart 
+```dart
    final localStorage = await LocalStorage.getInstance();
     void deleteData(TestModel test) async {
       await localStorage.delete<TestModel>(boxName: '__TEST_BOX__',value:testModel);
     }
 ```
 
-### update data to Custom Box 
+### update data to Custom Box
 
-``` dart 
+```dart
    final localStorage = await LocalStorage.getInstance();
     void updateData(TestModel test) async {
       await localStorage.update<TestModel>(boxName: '__TEST_BOX__',value:testModel);
@@ -138,7 +140,7 @@ to use this method you need to register adapter for hive objects in initializati
 
 #### To use with Riverpod
 
-``` dart
+```dart
 /// create provider
 final localStorageProvider = Provider<LocalStorage>((ref)=>throw UnImplementedError());
 
@@ -166,7 +168,7 @@ void main() {
 
 Write data
 
-``` dart
+```dart
    /// initialize local_storage
 final localStorage = await LocalStorage.getInstance();
 
@@ -185,7 +187,7 @@ await localStorage.putList<Model>(key:'KeyName',value:<Model>[]);
 
 Read data
 
-``` dart
+```dart
    /// initialize local_storage
 final localStorage = await LocalStorage.getInstance();
 
@@ -206,7 +208,7 @@ final listData = localStorage.getList<Model>(key:'Your KeyName');
 
 Delete data
 
-``` dart
+```dart
    /// initialize local_storage
 final localStorage = await LocalStorage.getInstance();
 
@@ -220,4 +222,3 @@ await localStorage.clear();
 await localStorage.clearAll();
 
 ```
-

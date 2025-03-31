@@ -111,20 +111,9 @@ class LocalStorage {
 
   /// `openBox`
   /// open custom box
-  FutureOr<Box<T>> openBox<T>({
-    required String boxName,
-    @Deprecated('''use customCipher from getInstance() method instead
-      will be removed in next version''')
-    HiveCipher? customCipher,
-    int? typeId,
-  }) async {
-    assert(typeId != 0, 'typeId 0 is already occupied by session');
-    if (typeId != null && !Hive.isAdapterRegistered(typeId)) {
-      throw Exception('Please register adapter for $T.');
-    }
+  FutureOr<Box<T>> openBox<T>({required String boxName}) async {
     return _lockGuard(() {
-      customCipher ??= _encryptionCipher;
-      return Hive.openBox<T>(boxName, encryptionCipher: customCipher);
+      return Hive.openBox<T>(boxName, encryptionCipher: _encryptionCipher);
     });
   }
 

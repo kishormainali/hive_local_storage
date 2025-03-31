@@ -1,3 +1,7 @@
+## 2.0.0-dev.4
+
+- migrated to hive_ce
+
 ## 2.0.0-dev.3
 
 ## 2.0.0-dev.2
