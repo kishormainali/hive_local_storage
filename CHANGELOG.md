@@ -1,3 +1,7 @@
+## 2.0.0-dev.5
+
+- removed session class and its implementation in favor of `SecureStorage` and `AuthToken`
+
 ## 2.0.0-dev.4
 
 - migrated to hive_ce
@@ -18,7 +22,7 @@
 
 > This release contains breaking changes
 
-- removed `getCusom` and `putCustom` methods use `get` and `put` with `boxName` instead
+- removed `getCustom` and `putCustom` methods use `get` and `put` with `boxName` instead
 - removed `removeCustom` method use `remove` with `boxName` instead
 - renamed `getBoxValues` to `values`
 - add `getBox` method to get box instance

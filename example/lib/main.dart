@@ -1,7 +1,10 @@
+import 'package:example/models/hive_registrar.g.dart';
 import 'package:flutter/material.dart';
+import 'package:hive_local_storage/hive_local_storage.dart';
 
-void main() {
-  runApp(const MyApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(MyApp());
 }
 
 class MyApp extends StatelessWidget {
@@ -15,7 +18,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: MyHomePage(title: 'Flutter Demo Home Page'),
     );
   }
 }
@@ -40,6 +43,22 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   int _counter = 0;
+  late LocalStorage storage;
+
+  void _initStorage() async {
+    storage = await LocalStorage.getInstance(
+      registerAdapters: Hive.registerAdapters,
+    );
+    setState(() {
+      _counter = storage.get<int>(key: 'counter', defaultValue: 0) ?? 0;
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _initStorage();
+  }
 
   void _incrementCounter() {
     setState(() {
@@ -50,6 +69,7 @@ class _MyHomePageState extends State<MyHomePage> {
       // called again, and so nothing would appear to happen.
       _counter++;
     });
+    storage.put<int>(key: 'counter', value: _counter);
   }
 
   @override

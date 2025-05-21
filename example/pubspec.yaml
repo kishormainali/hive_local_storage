@@ -37,6 +37,7 @@ dependencies:
   hive_local_storage:
     path: ../
 
+  hive_ce: ^2.11.2
   freezed_annotation: ^3.0.0
 
 dev_dependencies:
@@ -52,7 +53,7 @@ dev_dependencies:
   hive_ce_generator: ^1.8.2
   build_runner: ^2.4.15
 
-  freezed: ^3.0.4
+  freezed: ^3.0.6
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
