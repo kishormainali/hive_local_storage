@@ -1,13 +1,13 @@
+import 'dart:async';
 import 'dart:math';
 
-import 'package:example/adapters/contact.dart';
-import 'package:example/adapters/user.dart';
+import 'package:example/hive/hive_registrar.g.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_local_storage/hive_local_storage.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
+  await LocalStorage.initialize(registerAdapters: Hive.registerAdapters);
   runApp(const MyApp());
 }
 
@@ -56,10 +56,12 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   int _counter = 0;
-  late LocalStorage _localStorage;
+  bool _isLoggedIn = false;
+
+  StreamSubscription<bool>? _sessionStream;
 
   void _incrementCounter() async {
-    await _localStorage.put(key: 'counter', value: Random().nextInt(100));
+    await LocalStorage.i.put(key: 'counter', value: Random().nextInt(100));
   }
 
   @override
@@ -69,23 +71,30 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void _init() async {
-    _localStorage = await LocalStorage.getInstance(registerAdapters: () {
-      Hive
-        ..registerAdapter(UserAdapter())
-        ..registerAdapter(ContactAdapter());
+    _sessionStream = LocalStorage.i.onSessionChange.listen((event) {
+      setState(() {
+        _isLoggedIn = event;
+      });
     });
-    _counter = _localStorage.get<int>(key: 'counter', defaultValue: 0)!;
+    _counter = LocalStorage.i.get<int>(key: 'counter', defaultValue: 0)!;
 
-    _localStorage.watchKey<int>(key: 'counter').listen((event) {
+    LocalStorage.i.watchKey<int>(key: 'counter').listen((event) {
       setState(() {
         _counter = event ?? 0;
       });
     });
+
     // setState(() {});
   }
 
   void _remove() async {
-    await _localStorage.clear();
+    await LocalStorage.i.clear();
+  }
+
+  @override
+  void dispose() {
+    _sessionStream?.cancel();
+    super.dispose();
   }
 
   @override
@@ -116,14 +125,27 @@ class _MyHomePageState extends State<MyHomePage> {
           // horizontal).
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
-            const Text(
-              'You have pushed the button this many times:',
-            ),
+            const Text('You have pushed the button this many times:'),
             Text(
               '$_counter',
               style: Theme.of(context).textTheme.headlineMedium,
             ),
             ElevatedButton(onPressed: _remove, child: const Text('remove')),
+            ElevatedButton(
+              onPressed: () async {
+                await LocalStorage.i.saveToken('access_token_example_12345');
+              },
+              child: const Text('Login'),
+            ),
+
+            Text('Has session: $_isLoggedIn'),
+
+            ElevatedButton(
+              onPressed: () async {
+                await LocalStorage.i.clearSession();
+              },
+              child: Text('Logout'),
+            ),
           ],
         ),
       ),

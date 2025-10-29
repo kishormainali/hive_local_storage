@@ -1,3 +1,9 @@
+# 2.0.0
+> This release contains breaking changes
+- Make LocalStorage singleton and renamed getInstance with initialize, use LocalStorage.instance or LocalStorage.i or LocalStorage() for accessing member functions and getters
+- Migrated to hive_ce
+- Changed dart min sdk to 3.8
+
 ## 1.1.3
 
 - clear all storage keys on platform exception.

@@ -6,12 +6,13 @@ import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:hive_flutter/hive_flutter.dart';
+import 'package:hive_ce_flutter/hive_flutter.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:synchronized/synchronized.dart';
 
 import 'jwt_decoder.dart';
 import 'session.dart';
+import '_session_adaptor.dart';
 
 /// {@template local_storage}
 /// A wrapper class for session and cache box uses [Hive]
@@ -29,11 +30,13 @@ class LocalStorage {
   /// void main() {
   ///   runZonedGuarded(
   ///     () async {
-  ///       final localStorage = await LocalStorage.getInstance();
+  ///       await LocalStorage.initialize(// options);
   ///       runApp(
   ///         ProviderScope(
   ///           overrides: [
-  ///             localStorageProvider.overrideWithValue(localStorage),
+  ///             localStorageProvider.overrideWithValue(LocalStorage()),
+  /// or
+  ///             localStorageProvider.overrideWithValue(LocalStorage.instance),
   ///           ],
   ///           child: App(),
   ///         ),
@@ -49,10 +52,33 @@ class LocalStorage {
   ///{@macro local_storage}
   LocalStorage._();
 
+  /// singleton instance
+  static LocalStorage? _instance;
+
+  /// returns the singleton instance of [LocalStorage]
+  static LocalStorage get instance {
+    if (_instance == null) {
+      throw Exception(
+        'LocalStorage is not initialized. Please call initialize() first.',
+      );
+    }
+    return _instance!;
+  }
+
+  /// returns the singleton instance of [LocalStorage]
+  /// shorthand for [instance]
+  static LocalStorage get i => instance;
+
+  /// returns the singleton instance of [LocalStorage]
+  factory LocalStorage() => instance;
+
   static final _lock = Lock();
 
-  /// session key
+  /// session box key
   static const String sessionKey = '__JWT_SESSION_KEY__';
+
+  // session item key
+  static const String sessionItemKey = '__JWT_SESSION_ITEM_KEY__';
 
   /// cache key
   static const String cacheKey = '__CACHE_KEY__';
@@ -84,7 +110,7 @@ class LocalStorage {
   /// ```
   /// open the boxes
   /// returns [LocalStorage] instance
-  static Future<LocalStorage> getInstance({
+  static Future<void> initialize({
     void Function()? registerAdapters,
     HiveCipher? customCipher,
     String? storageDirectory,
@@ -94,12 +120,16 @@ class LocalStorage {
       await Hive.initFlutter(storageDirectory);
       Hive.registerAdapter(SessionAdapter());
       registerAdapters?.call();
-      _sessionBox = await Hive.openBox<Session>(sessionKey,
-          encryptionCipher: await _cipher(customCipher));
-      _cacheBox = await Hive.openBox(cacheKey,
-          encryptionCipher: await _cipher(customCipher));
+      _sessionBox = await Hive.openBox<Session>(
+        sessionKey,
+        encryptionCipher: await _cipher(customCipher),
+      );
+      _cacheBox = await Hive.openBox(
+        cacheKey,
+        encryptionCipher: await _cipher(customCipher),
+      );
     });
-    return LocalStorage._();
+    _instance ??= LocalStorage._();
   }
 
   /// returns encryption cipher for boxes
@@ -115,17 +145,17 @@ class LocalStorage {
       late Uint8List encryptionKey;
       var keyString = await _storage.read(key: encryptionBoxKey);
       encryptionKey = keyString == null
-          ? await _newEncryptionkey
+          ? await _newEncryptionKey
           : base64Url.decode(keyString);
       return HiveAesCipher(encryptionKey);
     } on PlatformException catch (_) {
       await _storage.deleteAll();
-      return HiveAesCipher(await _newEncryptionkey);
+      return HiveAesCipher(await _newEncryptionKey);
     }
   }
 
   /// Generate new encryption key
-  static Future<Uint8List> get _newEncryptionkey async {
+  static Future<Uint8List> get _newEncryptionKey async {
     final newKey = Hive.generateSecureKey();
     await _storage.write(key: encryptionBoxKey, value: base64UrlEncode(newKey));
     return Uint8List.fromList(newKey);
@@ -186,11 +216,7 @@ class LocalStorage {
   /// returns [defaultValue] if [key] is not found
   /// returns null if [defaultValue] is not provided
   /// if [boxName] is provided then it will get data from custom box
-  T? get<T>({
-    required String key,
-    T? defaultValue,
-    String? boxName,
-  }) {
+  T? get<T>({required String key, T? defaultValue, String? boxName}) {
     if (boxName != null) {
       if (Hive.isBoxOpen(boxName)) {
         final box = Hive.box<T>(boxName);
@@ -206,10 +232,7 @@ class LocalStorage {
   /// `remove`
   /// removes data from cache box
   /// if [boxName] is provided then it will remove data from custom box
-  Future<void> remove<T>({
-    required String key,
-    String? boxName,
-  }) async {
+  Future<void> remove<T>({required String key, String? boxName}) async {
     if (boxName != null) {
       if (Hive.isBoxOpen(boxName)) {
         final box = Hive.box<T>(boxName);
@@ -235,10 +258,7 @@ class LocalStorage {
 
   /// `add`
   /// add data to custom box
-  Future<void> add<T>({
-    required String boxName,
-    required T value,
-  }) async {
+  Future<void> add<T>({required String boxName, required T value}) async {
     if (Hive.isBoxOpen(boxName)) {
       await _lock.synchronized(() {
         final box = Hive.box<T>(boxName);
@@ -276,8 +296,9 @@ class LocalStorage {
   }) async {
     if (Hive.isBoxOpen(boxName)) {
       final box = Hive.box<T>(boxName);
-      final data =
-          box.values.firstWhereOrNull(filter ?? (element) => element == value);
+      final data = box.values.firstWhereOrNull(
+        filter ?? (element) => element == value,
+      );
       if (data != null) await _lock.synchronized(() => data.delete());
       await _lock.synchronized(() => box.add(value));
     } else {
@@ -296,8 +317,9 @@ class LocalStorage {
   }) async {
     if (Hive.isBoxOpen(boxName)) {
       final box = Hive.box<T>(boxName);
-      final data =
-          box.values.firstWhereOrNull(filter ?? (element) => element == value);
+      final data = box.values.firstWhereOrNull(
+        filter ?? (element) => element == value,
+      );
       await _lock.synchronized(() => data?.delete());
     } else {
       throw Exception('Please `openBox` before accessing it');
@@ -305,7 +327,7 @@ class LocalStorage {
   }
 
   /// private getter to access session
-  Session? get _session => _sessionBox.values.firstOrNull;
+  Session? get _session => _sessionBox.get(sessionItemKey);
 
   /// refreshToken
   /// getter to access accessToken
@@ -326,9 +348,13 @@ class LocalStorage {
   /// `onSessionChange`
   /// returns stream of [bool] when data changes on box
   Stream<bool> get onSessionChange {
-    return _sessionBox.watch().distinct().map<bool>((event) {
-      return event.value != null;
-    }).startWith(hasSession);
+    return _sessionBox
+        .watch(key: sessionItemKey)
+        .map<bool>((event) {
+          if (event.deleted) return false;
+          return event.value != null;
+        })
+        .startWith(hasSession);
   }
 
   /// `hasSession`
@@ -343,17 +369,16 @@ class LocalStorage {
   Future<void> saveToken(String token, [String? refreshToken]) async {
     _lock.synchronized(() async {
       if (hasSession) {
-        _session!
-          ..accessToken = token
-          ..refreshToken = refreshToken
-          ..updatedAt = DateTime.now();
-        await _session!.save();
+        _session!.copyWith(
+          accessToken: token,
+          refreshToken: refreshToken,
+          updatedAt: DateTime.now(),
+        );
+        await _sessionBox.put(sessionItemKey, _session!);
       } else {
-        await _sessionBox.add(
-          Session()
-            ..accessToken = token
-            ..refreshToken = refreshToken
-            ..createdAt = DateTime.now(),
+        await _sessionBox.put(
+          sessionItemKey,
+          Session(accessToken: token, refreshToken: refreshToken),
         );
       }
     });
@@ -369,40 +394,35 @@ class LocalStorage {
   /// clearSession
   /// removes the [Session] value from [Box]
   Future<void> clearSession() async {
-    await _lock.synchronized(() => _sessionBox.clear());
+    await _lock.synchronized(_sessionBox.clear);
   }
 
   /// watch
   /// watch specific key for value changed
-  Stream<T?> watchKey<T>({
-    required String key,
-    String? boxName,
-  }) {
+  Stream<T?> watchKey<T>({required String key, String? boxName}) {
     if (boxName != null) {
       if (Hive.isBoxOpen(boxName)) {
         final box = Hive.box<T>(boxName);
-        return box
-            .watch(key: key)
-            .distinct()
-            .map<T?>((event) => event.value as T?);
+        return box.watch(key: key).map<T?>((event) {
+          if (event.deleted) return null;
+          return event.value as T?;
+        });
       } else {
         throw Exception(
-            '$boxName is not yet opened, Please `openBox` before accessing it');
+          '$boxName is not yet opened, Please `openBox` before accessing it',
+        );
       }
     } else {
-      return _cacheBox
-          .watch(key: key)
-          .distinct()
-          .map<T?>((event) => event.value as T?);
+      return _cacheBox.watch(key: key).map<T?>((event) {
+        if (event.deleted) return null;
+        return event.value as T?;
+      });
     }
   }
 
   /// getList
   /// get list data
-  List<T> getList<T>({
-    required String key,
-    List<T> defaultValue = const [],
-  }) {
+  List<T> getList<T>({required String key, List<T> defaultValue = const []}) {
     try {
       final String encodedData = _cacheBox.get(key, defaultValue: '');
       if (encodedData.isEmpty) return defaultValue;
@@ -414,19 +434,14 @@ class LocalStorage {
   }
 
   /// save list of data
-  Future<void> putList<T>({
-    required String key,
-    required List<T> value,
-  }) async {
+  Future<void> putList<T>({required String key, required List<T> value}) async {
     final encodedData = jsonEncode(value);
     return _cacheBox.put(key, encodedData);
   }
 
   /// save
   /// puts value in box with [key]
-  Future<void> putAll({
-    required Map<String, dynamic> entries,
-  }) async {
+  Future<void> putAll({required Map<String, dynamic> entries}) async {
     return _cacheBox.putAll(entries);
   }
 
@@ -445,8 +460,10 @@ class LocalStorage {
   }) async {
     return _lock.synchronized(() async {
       /// open new box
-      final box =
-          await Hive.openBox<T>(boxName, encryptionCipher: await _cipher(null));
+      final box = await Hive.openBox<T>(
+        boxName,
+        encryptionCipher: await _cipher(null),
+      );
 
       /// put value
       await box.put(key, value);
@@ -464,8 +481,10 @@ class LocalStorage {
   }) async {
     return _lock.synchronized(() async {
       /// open new box
-      final box =
-          await Hive.openBox<T>(boxName, encryptionCipher: await _cipher(null));
+      final box = await Hive.openBox<T>(
+        boxName,
+        encryptionCipher: await _cipher(null),
+      );
       final value = box.get(key);
 
       /// close the box
@@ -480,28 +499,27 @@ class LocalStorage {
   /// clear all values from both session box and cache box
   /// does not clears box created using `openCustomBox()`
   Future<void> clearAll() async {
-    return _lock.synchronized(() async {
-      await _sessionBox.clear();
-      await _cacheBox.clear();
-    });
+    return _lock.synchronized(
+      () => Future.wait([_sessionBox.clear(), _cacheBox.clear()]),
+    );
   }
 
   /// close all the opened box
   Future<void> closeAll() async {
-    await _lock.synchronized(() {
-      _sessionBox.close();
-      _cacheBox.close();
-      Hive.close();
-    });
+    await _lock.synchronized(
+      () => Future.wait([_sessionBox.close(), _cacheBox.close(), Hive.close()]),
+    );
   }
 
   /// delete all the opened box
   Future<void> deleteAll() async {
-    await _lock.synchronized(() {
-      _sessionBox.deleteFromDisk();
-      _cacheBox.deleteFromDisk();
-      Hive.deleteFromDisk();
-    });
+    await _lock.synchronized(
+      () => Future.wait([
+        _sessionBox.deleteFromDisk(),
+        _cacheBox.deleteFromDisk(),
+        Hive.deleteFromDisk(),
+      ]),
+    );
   }
 
   /// convert box to map
