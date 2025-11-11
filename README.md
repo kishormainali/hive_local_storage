@@ -65,25 +65,24 @@ hive_local_storage provides easy mechanism to store session using encrypted box
 - #### Get Session
 
   ```dart
-     /// get access token
-     final accessToken  = LocalStorage.i.accessToken;
+     // get access token
+     final accessToken  = await LocalStorage.i.accessToken;
 
-     /// get refresh token
-     final refreshToken = LocalStorage.i.refreshToken;
+     // get refresh token
+     final refreshToken = await LocalStorage.i.refreshToken;
 
-     /// check wheather session is saved or not
-     final bool hasSession = LocalStorage.i.hasSession;
+     // check whether session is saved or not
+     final bool hasToken = await LocalStorage.i.hasToken;
 
-     /// listen wheather session is present or not
-     StreamSubscription<bool> _subscription = LocalStorage.i.onSessionChange.listen((bool hasSession){
+     // listen whether session is present or not
+     StreamSubscription<bool> _subscription = LocalStorage.i.onTokenChange.listen((bool hasToken){
       // do your stuff
      });
-     /// cancel your subscription on close/dispose method;
+     // cancel your subscription on close/dispose method;
      _subscription.cancel();
 
     //to check whether accessToken is expired or not
-    final isTokenExpired = LocalStorage.i.isTokenExpired;
-
+    final isTokenExpired = await LocalStorage.i.isTokenExpired;
   ```
 
 - ### Remove Session

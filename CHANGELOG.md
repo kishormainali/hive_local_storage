@@ -1,3 +1,7 @@
+# 2.0.2 (2025-11-11)
+
+- Updated docs
+
 # 2.0.1 (2025-11-11)
 
 > This is a patch release for version 2.0.0 and contains breaking changes
