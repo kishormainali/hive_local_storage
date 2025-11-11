@@ -1,3 +1,5 @@
+import 'jwt_decoder.dart';
+
 /// Represents a user session containing authentication tokens and timestamps.
 ///
 /// This class holds the access token and optional refresh token for user
@@ -11,13 +13,33 @@
 ///   refreshToken: 'your-refresh-token',
 /// );
 /// ```
-class Session {
+class Session extends AuthToken {
   /// Creates a new [Session] instance.
   ///
   /// The [accessToken] is required and represents the primary authentication token.
   /// The [refreshToken] is optional and used for token renewal.
   /// If [createdAt] or [updatedAt] are not provided, they default to the current time.
   Session({
+    required super.accessToken,
+    super.refreshToken,
+    super.createdAt,
+    super.updatedAt,
+  });
+
+  /// Returns a string representation of the session for debugging purposes.
+  @override
+  String toString() {
+    return 'Session{accessToken: $accessToken, refreshToken: $refreshToken , createdAt: $createdAt, updatedAt: $updatedAt}';
+  }
+}
+
+class AuthToken {
+  /// Creates a new [AuthToken] instance.
+  ///
+  /// The [accessToken] is required and represents the primary authentication token.
+  /// The [refreshToken] is optional and used for token renewal.
+  /// If [createdAt] or [updatedAt] are not provided, they default to the current time.
+  AuthToken({
     required this.accessToken,
     this.refreshToken,
     DateTime? createdAt,
@@ -49,13 +71,13 @@ class Session {
   ///   updatedAt: DateTime.now(),
   /// );
   /// ```
-  Session copyWith({
+  AuthToken copyWith({
     String? accessToken,
     String? refreshToken,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
-    return Session(
+    return AuthToken(
       accessToken: accessToken ?? this.accessToken,
       refreshToken: refreshToken ?? this.refreshToken,
       createdAt: createdAt ?? this.createdAt,
@@ -63,9 +85,40 @@ class Session {
     );
   }
 
+  /// Tells whether the access token is expired.
+  bool get isAccessTokenExpired {
+    return JwtDecoder.isExpired(accessToken);
+  }
+
+  /// Tells whether the refresh token is expired.
+  bool get isRefreshTokenExpired {
+    if (refreshToken == null) {
+      return true;
+    }
+    return JwtDecoder.isExpired(refreshToken!);
+  }
+
+  /// Tells whether the access token can be refreshed.
+  bool get canRefresh => refreshToken != null && !isRefreshTokenExpired;
+
+  @override
+  int get hashCode =>
+      Object.hashAll([accessToken, refreshToken, createdAt, updatedAt]);
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+
+    return other is AuthToken &&
+        other.accessToken == accessToken &&
+        other.refreshToken == refreshToken &&
+        other.createdAt == createdAt &&
+        other.updatedAt == updatedAt;
+  }
+
   /// Returns a string representation of the session for debugging purposes.
   @override
   String toString() {
-    return 'Session{accessToken: $accessToken, refreshToken: $refreshToken , createdAt: $createdAt, updatedAt: $updatedAt}';
+    return 'AuthToken{accessToken: $accessToken, refreshToken: $refreshToken , createdAt: $createdAt, updatedAt: $updatedAt}';
   }
 }
