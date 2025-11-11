@@ -26,8 +26,10 @@ class SecureStorage {
   ///{@macro token_storage}
   SecureStorage._() {
     _storage = const FlutterSecureStorage(
-      iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
-      aOptions: AndroidOptions(),
+      iOptions: IOSOptions(
+        accessibility: KeychainAccessibility.first_unlock_this_device,
+      ),
+      aOptions: AndroidOptions(encryptedSharedPreferences: true),
     );
   }
 
@@ -49,7 +51,8 @@ class SecureStorage {
   /// refresh token key
   static const _refreshTokenKey = '__refresh__';
 
-  final BehaviorSubject<bool> _accessTokenSubject = BehaviorSubject<bool>();
+  final BehaviorSubject<bool> _accessTokenSubject =
+      BehaviorSubject<bool>.seeded(false);
 
   /// register accessToken listener
   void registerAccessTokenListener(ValueChanged<String?> listener) {
@@ -88,6 +91,10 @@ class SecureStorage {
       if (token.refreshToken != null)
         _storage.write(key: _refreshTokenKey, value: token.refreshToken!),
     ]);
+    _accessTokenSubject.add(
+      token.accessToken.isNotEmpty &&
+          JwtDecoder.isExpired(token.accessToken) == false,
+    );
   }
 
   /// get the auth token
@@ -111,9 +118,21 @@ class SecureStorage {
   }
 
   /// delete the session
+  /// deletes both access token and refresh token
   Future<void> deleteToken() async {
     await _storage.delete(key: _accessTokenKey);
     await _storage.delete(key: _refreshTokenKey);
+    _accessTokenSubject.add(false);
+  }
+
+  /// `onTokenChange`
+  /// returns stream of [bool] when data changes on token
+  Stream<bool> get onTokenChange async* {
+    // emit current value
+    yield await hasToken;
+
+    // Then forward all events from the token subject
+    yield* _accessTokenSubject.stream;
   }
 
   /// set the value
