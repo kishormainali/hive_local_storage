@@ -71,7 +71,7 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void _init() async {
-    _sessionStream = LocalStorage.i.onSessionChange.listen((event) {
+    _sessionStream = LocalStorage.i.onTokenChange.listen((event) {
       setState(() {
         _isLoggedIn = event;
       });
@@ -133,7 +133,7 @@ class _MyHomePageState extends State<MyHomePage> {
             ElevatedButton(onPressed: _remove, child: const Text('remove')),
             ElevatedButton(
               onPressed: () async {
-                await LocalStorage.i.saveToken('access_token_example_12345');
+                await LocalStorage.i.saveToken('test_text_token');
               },
               child: const Text('Login'),
             ),

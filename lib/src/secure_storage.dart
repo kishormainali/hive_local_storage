@@ -8,7 +8,6 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:hive_local_storage/src/jwt_decoder.dart';
 import 'package:rxdart/rxdart.dart';
 
 import 'token.dart';
@@ -31,6 +30,15 @@ class SecureStorage {
       ),
       aOptions: AndroidOptions(encryptedSharedPreferences: true),
     );
+
+    // register access token listener
+    _storage.registerListener(
+      key: _accessTokenKey,
+      listener: (token) {
+        bool isValid = token != null;
+        _accessTokenSubject.add(isValid);
+      },
+    );
   }
 
   /// singleton instance of secure storage
@@ -51,18 +59,13 @@ class SecureStorage {
   /// refresh token key
   static const _refreshTokenKey = '__refresh__';
 
+  /// access token subject
   final BehaviorSubject<bool> _accessTokenSubject =
       BehaviorSubject<bool>.seeded(false);
 
   /// register accessToken listener
   void registerAccessTokenListener(ValueChanged<String?> listener) {
-    _storage.registerListener(
-      key: _accessTokenKey,
-      listener: (token) {
-        listener(token);
-        _accessTokenSubject.add(token != null);
-      },
-    );
+    _storage.registerListener(key: _accessTokenKey, listener: listener);
   }
 
   /// unregister accessToken listener
@@ -91,10 +94,6 @@ class SecureStorage {
       if (token.refreshToken != null)
         _storage.write(key: _refreshTokenKey, value: token.refreshToken!),
     ]);
-    _accessTokenSubject.add(
-      token.accessToken.isNotEmpty &&
-          JwtDecoder.isExpired(token.accessToken) == false,
-    );
   }
 
   /// get the auth token
@@ -114,7 +113,7 @@ class SecureStorage {
   /// check if session exists
   Future<bool> get hasToken async {
     final token = await accessToken;
-    return token != null && JwtDecoder.isExpired(token) == false;
+    return token != null;
   }
 
   /// delete the session
@@ -122,15 +121,15 @@ class SecureStorage {
   Future<void> deleteToken() async {
     await _storage.delete(key: _accessTokenKey);
     await _storage.delete(key: _refreshTokenKey);
-    _accessTokenSubject.add(false);
   }
 
   /// `onTokenChange`
   /// returns stream of [bool] when data changes on token
   Stream<bool> get onTokenChange async* {
-    // emit current value
-    yield await hasToken;
-
+    // check current token status
+    final token = await hasToken;
+    // add the current status to the stream
+    _accessTokenSubject.add(token);
     // Then forward all events from the token subject
     yield* _accessTokenSubject.stream;
   }

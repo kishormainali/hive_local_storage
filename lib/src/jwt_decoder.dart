@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer' as dev;
 
 class JwtDecoder {
   /// Decode a string JWT token into a `Map<String, dynamic>`
@@ -24,6 +25,7 @@ class JwtDecoder {
       // Return the decoded payload
       return decodedPayload;
     } catch (error) {
+      dev.log('Error decoding token payload', error: error);
       throw const FormatException('Invalid payload');
     }
   }
@@ -49,6 +51,14 @@ class JwtDecoder {
   /// Throws [FormatException] if parameter is not a valid JWT token.
   static bool isExpired(String token) {
     final expirationDate = getExpirationDate(token);
+
+    // Check if the expiration date is valid
+    if (expirationDate == DateTime.fromMillisecondsSinceEpoch(0)) {
+      // If there is no expiration date, consider the token as expired
+      dev.log('Token has no expiration date - considering it expired');
+      return true;
+    }
+
     // If the current date is after the expiration date, the token is already expired
     return DateTime.now().isAfter(expirationDate);
   }
@@ -57,10 +67,16 @@ class JwtDecoder {
   ///
   /// Throws [FormatException] if parameter is not a valid JWT token.
   static DateTime getExpirationDate(String token) {
-    final decodedToken = decode(token);
+    final decodedToken = tryDecode(token);
 
-    final expirationDate = DateTime.fromMillisecondsSinceEpoch(0)
-        .add(Duration(seconds: decodedToken['exp'].toInt()));
+    if (decodedToken == null || !decodedToken.containsKey('exp')) {
+      dev.log('Token has no expiration date - considering it expired');
+      return DateTime.fromMillisecondsSinceEpoch(0);
+    }
+
+    final expirationDate = DateTime.fromMillisecondsSinceEpoch(
+      0,
+    ).add(Duration(seconds: decodedToken['exp'].toInt()));
     return expirationDate;
   }
 
@@ -68,10 +84,15 @@ class JwtDecoder {
   ///
   /// Throws [FormatException] if parameter is not a valid JWT token.
   static Duration getTokenTime(String token) {
-    final decodedToken = decode(token);
+    final decodedToken = tryDecode(token);
+    if (decodedToken == null || !decodedToken.containsKey('iat')) {
+      dev.log('Token has no issuing date - considering it invalid');
+      return Duration.zero;
+    }
 
-    final issuedAtDate = DateTime.fromMillisecondsSinceEpoch(0)
-        .add(Duration(seconds: decodedToken["iat"]));
+    final issuedAtDate = DateTime.fromMillisecondsSinceEpoch(
+      0,
+    ).add(Duration(seconds: decodedToken["iat"]));
     return DateTime.now().difference(issuedAtDate);
   }
 
@@ -80,7 +101,6 @@ class JwtDecoder {
   /// Throws [FormatException] if parameter is not a valid JWT token.
   static Duration getRemainingTime(String token) {
     final expirationDate = getExpirationDate(token);
-
     return expirationDate.difference(DateTime.now());
   }
 }

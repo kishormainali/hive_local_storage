@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:developer' as dev;
 
 // ignore: depend_on_referenced_packages
 import 'package:collection/collection.dart';
@@ -7,12 +8,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
 import 'package:hive_local_storage/src/_crypto/aes_gcm_cipher.dart';
-import 'package:rxdart/rxdart.dart';
 import 'package:synchronized/synchronized.dart';
 
+import '_session_adaptor.dart';
 import 'secure_storage.dart';
 import 'token.dart';
-import '_session_adaptor.dart';
 
 /// {@template local_storage}
 /// A wrapper class for session and cache box uses [Hive]
@@ -116,11 +116,23 @@ class LocalStorage {
       // register adapters
       registerAdapters?.call();
 
-      // open cache box
-      _cacheBox = await Hive.openBox(
-        cacheKey,
-        encryptionCipher: await _cipher(customCipher),
-      );
+      try {
+        // open cache box
+        _cacheBox = await Hive.openBox(
+          cacheKey,
+          encryptionCipher: await _cipher(customCipher),
+        );
+      } catch (_) {
+        dev.log(
+          'Error opening cache box clearing all the caches and re-initializing...',
+        );
+        // in case of any error, delete the box and recreate it
+        await Hive.deleteBoxFromDisk(cacheKey);
+        _cacheBox = await Hive.openBox(
+          cacheKey,
+          encryptionCipher: await _cipher(customCipher),
+        );
+      }
     });
 
     _instance ??= LocalStorage._();
@@ -131,23 +143,30 @@ class LocalStorage {
   static Future<void> _migrateToTokenStorageIfNeeded(
     HiveCipher? customCipher,
   ) async {
-    Hive.registerAdapter(SessionAdapter());
-    final sessionBox = await Hive.openBox<Session>(
-      sessionKey,
-      encryptionCipher: await _cipher(customCipher),
-    );
-    final session = sessionBox.get(sessionItemKey);
-    if (session != null) {
-      final token = AuthToken(
-        accessToken: session.accessToken,
-        refreshToken: session.refreshToken,
-        createdAt: session.createdAt,
-        updatedAt: session.updatedAt,
+    try {
+      Hive.registerAdapter(SessionAdapter());
+      final sessionBox = await Hive.openBox<Session>(
+        sessionKey,
+        encryptionCipher: await _cipher(customCipher),
       );
-      await SecureStorage.i.setToken(token);
+      final session = sessionBox.get(sessionItemKey);
+      if (session != null) {
+        dev.log('Old session detected, migrating  to secure token storage...');
+        final token = AuthToken(
+          accessToken: session.accessToken,
+          refreshToken: session.refreshToken,
+          createdAt: session.createdAt,
+          updatedAt: session.updatedAt,
+        );
+        await SecureStorage.i.setToken(token);
+      }
+      dev.log('cleaning old token storage...');
+      await sessionBox.clear();
+      await sessionBox.deleteFromDisk();
+    } on PlatformException catch (_) {
+      dev.log('Error during migration removing all the old sessions....:');
+      await Hive.deleteBoxFromDisk(sessionKey);
     }
-    await sessionBox.clear();
-    await sessionBox.deleteFromDisk();
   }
 
   /// returns encryption cipher for boxes
@@ -167,6 +186,7 @@ class LocalStorage {
           : base64Url.decode(keyString);
       return AesGcmCipher(encryptionKey);
     } on PlatformException catch (_) {
+      dev.log('Error getting encryption cipher, generating new one...');
       await SecureStorage.i.delete(encryptionBoxKey);
       return AesGcmCipher(await __newEncryptionCipher);
     }
