@@ -7,11 +7,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
+import 'package:hive_local_storage/src/_crypto/aes_gcm_cipher.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:synchronized/synchronized.dart';
 
 import 'jwt_decoder.dart';
-import 'session.dart';
+import 'secure_storage.dart';
+import 'token.dart';
 import '_session_adaptor.dart';
 
 /// {@template local_storage}
@@ -74,6 +76,8 @@ class LocalStorage {
 
   static final _lock = Lock();
 
+  static final BehaviorSubject<bool> _sessionSubject = BehaviorSubject<bool>();
+
   /// session box key
   static const String sessionKey = '__JWT_SESSION_KEY__';
 
@@ -93,9 +97,6 @@ class LocalStorage {
       accessibility: KeychainAccessibility.first_unlock_this_device,
     ),
   );
-
-  /// [Box] session box
-  static late Box<Session> _sessionBox;
 
   /// [Box] _cacheBox
   static late Box<dynamic> _cacheBox;
@@ -118,44 +119,77 @@ class LocalStorage {
     WidgetsFlutterBinding.ensureInitialized();
     await _lock.synchronized(() async {
       await Hive.initFlutter(storageDirectory);
-      Hive.registerAdapter(SessionAdapter());
+
+      if (await Hive.boxExists(sessionKey)) {
+        _migrateToTokenStorageIfNeeded(customCipher);
+      }
+
+      // register adapters
       registerAdapters?.call();
-      _sessionBox = await Hive.openBox<Session>(
-        sessionKey,
-        encryptionCipher: await _cipher(customCipher),
-      );
+
+      // open cache box
       _cacheBox = await Hive.openBox(
         cacheKey,
         encryptionCipher: await _cipher(customCipher),
       );
+
+      // register token listener
+      SecureStorage.i.registerAccessTokenListener((String? token) {
+        _sessionSubject.add(token != null);
+      });
     });
+
     _instance ??= LocalStorage._();
+  }
+
+  /// migrate existing session to token storage
+  /// this is a one-time migration
+  static Future<void> _migrateToTokenStorageIfNeeded(
+    HiveCipher? customCipher,
+  ) async {
+    Hive.registerAdapter(SessionAdapter());
+    final sessionBox = await Hive.openBox<Session>(
+      sessionKey,
+      encryptionCipher: await _cipher(customCipher),
+    );
+    final session = sessionBox.get(sessionItemKey);
+    if (session != null) {
+      final token = AuthToken(
+        accessToken: session.accessToken,
+        refreshToken: session.refreshToken,
+        createdAt: session.createdAt,
+        updatedAt: session.updatedAt,
+      );
+      await SecureStorage.i.setToken(token);
+    }
+    await sessionBox.clear();
+    await sessionBox.deleteFromDisk();
   }
 
   /// returns encryption cipher for boxes
   static Future<HiveCipher> _cipher(HiveCipher? customCipher) async {
     if (customCipher != null) return customCipher;
-    return await _encryptionKey;
+    return await _encryptionCipher;
   }
 
   /// HiveAesCipher encryptionKey
   /// encryption key to secure session box
-  static Future<HiveAesCipher> get _encryptionKey async {
+  static Future<HiveCipher> get _encryptionCipher async {
     try {
       late Uint8List encryptionKey;
       var keyString = await _storage.read(key: encryptionBoxKey);
       encryptionKey = keyString == null
-          ? await _newEncryptionKey
+          ? await __newEncryptionCipher
           : base64Url.decode(keyString);
-      return HiveAesCipher(encryptionKey);
+      return AesGcmCipher(encryptionKey);
     } on PlatformException catch (_) {
-      await _storage.deleteAll();
-      return HiveAesCipher(await _newEncryptionKey);
+      await _storage.delete(key: encryptionBoxKey);
+      return AesGcmCipher(await __newEncryptionCipher);
     }
   }
 
   /// Generate new encryption key
-  static Future<Uint8List> get _newEncryptionKey async {
+  static Future<Uint8List> get __newEncryptionCipher async {
     final newKey = Hive.generateSecureKey();
     await _storage.write(key: encryptionBoxKey, value: base64UrlEncode(newKey));
     return Uint8List.fromList(newKey);
@@ -327,41 +361,42 @@ class LocalStorage {
   }
 
   /// private getter to access session
-  Session? get _session => _sessionBox.get(sessionItemKey);
+  Future<AuthToken?> get _session => SecureStorage.i.getToken();
 
   /// refreshToken
   /// getter to access accessToken
-  String? get accessToken => _session?.accessToken;
+  Future<String?> get accessToken async => (await _session)?.accessToken;
 
   /// refreshToken
   /// getter to access refreshToken
-  String? get refreshToken => _session?.refreshToken;
+  Future<String?> get refreshToken async => (await _session)?.refreshToken;
 
   /// createdAt
   /// getter to access createdAt
-  DateTime? get createdAt => _session?.createdAt;
+  Future<DateTime?> get createdAt async => (await _session)?.createdAt;
 
   /// updatedAt
   /// getter to access updatedAt
-  DateTime? get updatedAt => _session?.updatedAt;
+  Future<DateTime?> get updatedAt async => (await _session)?.updatedAt;
 
   /// `onSessionChange`
   /// returns stream of [bool] when data changes on box
-  Stream<bool> get onSessionChange {
-    return _sessionBox
-        .watch(key: sessionItemKey)
-        .map<bool>((event) {
-          if (event.deleted) return false;
-          return event.value != null;
-        })
-        .startWith(hasSession);
+  Stream<bool> get onSessionChange async* {
+    // emit current value
+    yield await hasToken;
+
+    // Then forward all events from the token subject
+    yield* _sessionSubject.stream;
   }
 
   /// `hasSession`
   /// checks whether `Box<Session>` is not empty or [Session] is not null
-  bool get hasSession {
-    return _sessionBox.isNotEmpty && _session != null;
-  }
+  @Deprecated('Use hasToken instead')
+  Future<bool> get hasSession => hasToken;
+
+  /// `hasToken`
+  /// checks whether `AuthToken` is not null
+  Future<bool> get hasToken => SecureStorage.i.hasToken;
 
   /// `saveToken`
   /// updates access token if exists or saves new one if not
@@ -369,12 +404,12 @@ class LocalStorage {
   Future<void> saveToken(String token, [String? refreshToken]) async {
     _lock.synchronized(() async {
       if (hasSession) {
-        _session!.copyWith(
+        _session.copyWith(
           accessToken: token,
           refreshToken: refreshToken,
           updatedAt: DateTime.now(),
         );
-        await _sessionBox.put(sessionItemKey, _session!);
+        await _sessionBox.put(sessionItemKey, _session);
       } else {
         await _sessionBox.put(
           sessionItemKey,
@@ -388,7 +423,7 @@ class LocalStorage {
   /// checks whether token is expired or not
   bool? get isTokenExpired {
     if (!hasSession) return null;
-    return JwtDecoder.isExpired(_session!.accessToken);
+    return JwtDecoder.isExpired(_session.accessToken);
   }
 
   /// clearSession

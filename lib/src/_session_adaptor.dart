@@ -1,6 +1,6 @@
 import 'package:hive_ce/hive.dart';
 
-import 'session.dart';
+import 'token.dart';
 
 /// Hive TypeAdapter for serializing and deserializing [Session] objects.
 ///
