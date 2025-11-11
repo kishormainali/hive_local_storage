@@ -2,7 +2,7 @@
 
 > This is a patch release for version 2.0.0 and contains breaking changes
 
-- Migrated session storage from hive_ce to flutter_secure_storage
+- Migrated session storage from hive_ce to flutter_secure_storage, after this related methods and getters are now asynchronous
 - Deprecated Session related methods and getters. Use Token related methods and getters instead (will be removed in future releases)
 - Added AES GCM encryption for LocalStorage
 - By default, LocalStorage now uses AES GCM encryption. You can add your own encryption cipher by passing customCipher while initializing LocalStorage
