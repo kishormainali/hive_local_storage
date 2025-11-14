@@ -1,3 +1,8 @@
+# 2.0.3 (2025-11-14)
+- LocalStorage.clearAll() now clears session also
+- LocalStorage.clear() now clears all opened boxes including cache box
+
+
 # 2.0.2 (2025-11-11)
 
 - Updated docs
