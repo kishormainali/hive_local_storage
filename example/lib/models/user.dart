@@ -5,7 +5,11 @@ class User {
 
   final List<User> users;
 
-  User({required this.name, required this.address, required this.users});
+  User({
+    required this.name,
+    required this.address,
+    this.users = const <User>[],
+  });
 
   @override
   String toString() {

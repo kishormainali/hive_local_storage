@@ -2,8 +2,11 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:example/hive/hive_registrar.g.dart';
+import 'package:example/models/contact.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_local_storage/hive_local_storage.dart';
+
+import 'models/user.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -60,6 +63,9 @@ class _MyHomePageState extends State<MyHomePage> {
 
   StreamSubscription<bool>? _sessionStream;
 
+  User? _user;
+  Contact? _contact;
+
   void _incrementCounter() async {
     await LocalStorage.i.put(key: 'counter', value: Random().nextInt(100));
   }
@@ -84,11 +90,31 @@ class _MyHomePageState extends State<MyHomePage> {
       });
     });
 
+    _user = LocalStorage.i.get<User>(key: 'user');
+    _contact = LocalStorage.i.get<Contact>(key: 'contact');
+
     // setState(() {});
   }
 
   void _remove() async {
     await LocalStorage.i.clear();
+  }
+
+  void saveData() async {
+    final user = User(
+      name: 'John Doe',
+      address: '123 Main St',
+      users: [User(name: 'Alice', address: '456 Elm St')],
+    );
+    final contact = Contact(name: 'Jane Smith');
+
+    await LocalStorage.i.put<User>(key: 'user', value: user);
+    await LocalStorage.i.put<Contact>(key: 'contact', value: contact);
+
+    setState(() {
+      _user = user;
+      _contact = contact;
+    });
   }
 
   @override
@@ -140,19 +166,44 @@ class _MyHomePageState extends State<MyHomePage> {
 
             Text('Has session: $_isLoggedIn'),
 
+            SizedBox(height: 20),
+            Text('User: ${_user.toString()}'),
+            SizedBox(height: 20),
+            Text('Contact: ${_contact.toString()}'),
+
             ElevatedButton(
               onPressed: () async {
                 await LocalStorage.i.clearSession();
               },
               child: Text('Logout'),
             ),
+            ElevatedButton(
+              onPressed: () async {
+                await LocalStorage.i.clear();
+                setState(() {
+                  _user = null;
+                  _contact = null;
+                });
+              },
+              child: Text('Clear Cache'),
+            ),
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
+      floatingActionButton: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          FloatingActionButton(
+            onPressed: _incrementCounter,
+            tooltip: 'Increment',
+            child: const Icon(Icons.add),
+          ),
+          FloatingActionButton(
+            onPressed: saveData,
+            tooltip: 'Increment',
+            child: const Icon(Icons.add_business),
+          ),
+        ],
       ), // This trailing comma makes auto-formatting nicer for build methods.
     );
   }

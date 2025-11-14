@@ -72,6 +72,7 @@ class LocalStorage {
   /// returns the singleton instance of [LocalStorage]
   factory LocalStorage() => instance;
 
+  /// lock for synchronizing access
   static final _lock = Lock();
 
   /// session box key
@@ -89,13 +90,13 @@ class LocalStorage {
   /// [Box] _cacheBox
   static late Box<dynamic> _cacheBox;
 
+  /// opened boxes
+  static final Set<String> _openedBoxes = {};
+
   /// initialize the dependencies
   /// register the adapters
   /// ```
-  /// final instance = LocalStorage.getInstance(registerAdapters:(){
-  ///   Hive..registerAdapter(adapter1)
-  ///       ..registerAdapter(adapter2);
-  /// });
+  /// await LocalStorage.initialize(registerAdapters:Hive.registerAdapters);
   /// ```
   /// open the boxes
   /// returns [LocalStorage] instance
@@ -209,12 +210,13 @@ class LocalStorage {
     if (typeId != null && !Hive.isAdapterRegistered(typeId)) {
       throw Exception('Please register adapter for $T.');
     }
-    return await _lock.synchronized(
-      () async => Hive.openBox<T>(
+    return await _lock.synchronized(() async {
+      _openedBoxes.add(boxName);
+      return Hive.openBox<T>(
         boxName,
         encryptionCipher: await _cipher(customCipher),
-      ),
-    );
+      );
+    });
   }
 
   /// `getBox`
@@ -365,7 +367,7 @@ class LocalStorage {
   }
 
   /// private getter to access session
-  Future<AuthToken?> get _token => SecureStorage.i.getToken();
+  Future<AuthToken?> get token => SecureStorage.i.getToken();
 
   /// refreshToken
   /// getter to access accessToken
@@ -377,11 +379,11 @@ class LocalStorage {
 
   /// createdAt
   /// getter to access createdAt
-  Future<DateTime?> get createdAt async => (await _token)?.createdAt;
+  Future<DateTime?> get createdAt async => (await token)?.createdAt;
 
   /// updatedAt
   /// getter to access updatedAt
-  Future<DateTime?> get updatedAt async => (await _token)?.updatedAt;
+  Future<DateTime?> get updatedAt async => (await token)?.updatedAt;
 
   /// `onSessionChange`
   /// returns stream of [bool] when data changes on box
@@ -415,7 +417,7 @@ class LocalStorage {
   /// `isTokenExpired`
   /// checks whether token is expired or not
   Future<bool?> get isTokenExpired async {
-    final token = await _token;
+    final token = await this.token;
     if (token == null) return null;
     return token.isAccessTokenExpired;
   }
@@ -475,9 +477,16 @@ class LocalStorage {
   }
 
   /// clear
-  /// clear all values from box
+  /// clear all values from opened boxes including cache box
   Future<int> clear() async {
-    return _lock.synchronized(() => _cacheBox.clear());
+    return _lock.synchronized(() async {
+      await Future.wait([
+        _cacheBox.clear(),
+        for (final boxName in _openedBoxes)
+          if (Hive.isBoxOpen(boxName)) Hive.box(boxName).clear(),
+      ]);
+      return 0;
+    });
   }
 
   /// `writeAndClose`
@@ -525,27 +534,53 @@ class LocalStorage {
   }
 
   /// clearAll
-  /// clear all values from both session box and cache box
-  /// does not clears box created using `openCustomBox()`
+  /// clear all values from  cache box
+  /// clears all boxes created using `openBox()`
+  /// also clears token/session storage
   Future<void> clearAll() async {
-    return _lock.synchronized(_cacheBox.clear);
+    return _lock.synchronized(() async {
+      final futures = <Future>[];
+      if (_openedBoxes.isNotEmpty) {
+        for (var boxName in _openedBoxes) {
+          if (Hive.isBoxOpen(boxName)) {
+            final box = Hive.box(boxName);
+            futures.add(box.clear());
+          }
+        }
+      }
+      await Future.wait([
+        SecureStorage.i.deleteToken(),
+        SecureStorage.i.clear(),
+        _cacheBox.clear(),
+        ...futures,
+      ]);
+    });
   }
 
-  /// close all the opened box
+  /// close all the opened box and clear token storage
   Future<void> closeAll() async {
-    await _lock.synchronized(
-      () => Future.wait([_cacheBox.close(), Hive.close()]),
-    );
+    await _lock.synchronized(() {
+      _openedBoxes.clear();
+      return Future.wait([
+        SecureStorage.i.clear(),
+        _cacheBox.close(),
+        Hive.close(),
+      ]);
+    });
   }
 
   /// delete all the opened box
   Future<void> deleteAll() async {
-    await _lock.synchronized(
-      () => Future.wait([_cacheBox.deleteFromDisk(), Hive.deleteFromDisk()]),
-    );
+    await _lock.synchronized(() {
+      _openedBoxes.clear();
+      return Future.wait([_cacheBox.deleteFromDisk(), Hive.deleteFromDisk()]);
+    });
   }
 
   /// convert box to map
-  Map<String, Map<String, dynamic>?> toCacheMap() =>
-      Map.unmodifiable(_cacheBox.toMap());
+  Map<String, Map<String, dynamic>?> toCacheMap() => Map.unmodifiable({
+    "cache": _cacheBox.toMap(),
+    for (var boxName in _openedBoxes)
+      if (Hive.isBoxOpen(boxName)) boxName: Hive.box(boxName).toMap(),
+  });
 }

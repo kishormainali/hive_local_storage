@@ -51,7 +51,8 @@ class UserAdapter extends TypeAdapter<User> {
     return User(
       name: fields[0] as String,
       address: fields[1] as String,
-      users: (fields[2] as List).cast<User>(),
+      users:
+          fields[2] == null ? const <User>[] : (fields[2] as List).cast<User>(),
     );
   }
 
