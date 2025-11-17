@@ -1,6 +1,7 @@
 # 2.0.5 (2025-11-17)
 
 - Improve error handling while migrating old data
+- Fixes session migration issue
 
 # 2.0.4 (2025-11-14)
 
