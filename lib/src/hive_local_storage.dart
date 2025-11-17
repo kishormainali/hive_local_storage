@@ -123,24 +123,6 @@ class LocalStorage {
 
       /// migrate to new encryption if needed
       await _migrateToNewEncryptionIfNeeded(customCipher);
-
-      try {
-        // open cache box
-        _cacheBox = await Hive.openBox(
-          cacheKey,
-          encryptionCipher: await _cipher(customCipher),
-        );
-      } catch (_) {
-        dev.log(
-          'Error opening cache box clearing all the caches and re-initializing...',
-        );
-        // in case of any error, delete the box and recreate it
-        await Hive.deleteBoxFromDisk(cacheKey);
-        _cacheBox = await Hive.openBox(
-          cacheKey,
-          encryptionCipher: await _cipher(customCipher),
-        );
-      }
     });
 
     _instance ??= LocalStorage._();
@@ -648,19 +630,28 @@ class LocalStorage {
         await SecureStorage.i.delete(encryptionBoxKey);
         final newCipher = await _cipher(customCipher);
 
-        final newBox = await Hive.openBox(
-          cacheKey,
-          encryptionCipher: newCipher,
-        );
-        await newBox.putAll(data);
+        _cacheBox = await Hive.openBox(cacheKey, encryptionCipher: newCipher);
+        await _cacheBox.putAll(data);
 
         // migration successful, remove old encryption key
         dev.log('Migration successful...');
+      } else {
+        // no old box found, remove old encryption key
+        dev.log('No old box found, removing old encryption key...');
+        await SecureStorage.i.delete(encryptionBoxKey);
+        _cacheBox = await Hive.openBox(
+          cacheKey,
+          encryptionCipher: await _cipher(customCipher),
+        );
       }
     } catch (_) {
       dev.log('Error during migration, clearing all boxes....:');
       await Hive.deleteFromDisk();
       SecureStorage.i.delete(encryptionBoxKey);
+      _cacheBox = await Hive.openBox(
+        cacheKey,
+        encryptionCipher: await _cipher(customCipher),
+      );
     }
   }
 }
