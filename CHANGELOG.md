@@ -1,10 +1,16 @@
+# 2.0.5 (2025-11-17)
+
+- Improve error handling while migrating old data
+- Fixes session migration issue
+
 # 2.0.4 (2025-11-14)
+
 - Migrate old data with new cipher
 
 # 2.0.3 (2025-11-14)
+
 - LocalStorage.clearAll() now clears session also
 - LocalStorage.clear() now clears all opened boxes including cache box
-
 
 # 2.0.2 (2025-11-11)
 
