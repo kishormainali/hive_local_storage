@@ -85,6 +85,9 @@ class LocalStorage {
   /// cache key
   static const String cacheKey = '__CACHE_KEY__';
 
+  /// new cache box key
+  static const String newCacheBoxKey = '__NEW_CACHE_KEY__';
+
   /// encryption key
   static const String encryptionBoxKey = '__ENCRYPTION_KEY__';
 
@@ -113,12 +116,11 @@ class LocalStorage {
     await _lock.synchronized(() async {
       // initialize hive
       await Hive.initFlutter(storageDirectory);
+      // register adapters
+      registerAdapters?.call();
 
       // migrate session to token storage if needed
       await _migrateToTokenStorageIfNeeded(customCipher);
-
-      // register adapters
-      registerAdapters?.call();
 
       /// migrate to new encryption if needed
       await _migrateToNewEncryptionIfNeeded(customCipher);
@@ -132,57 +134,59 @@ class LocalStorage {
   static Future<void> _migrateToTokenStorageIfNeeded(
     HiveCipher? customCipher,
   ) async {
-    if (await Hive.boxExists(sessionKey)) {
-      try {
-        final oldKey = await SecureStorage.i.get(encryptionBoxKey);
-        if (oldKey == null) {
-          dev.log('No old encryption key found, skipping token migration...');
-          // no old encryption key, no need to migrate
-          return;
-        }
-
-        /// create old cipher
-        final oldCipher = HiveAesCipher(base64.decode(oldKey));
-        Hive.registerAdapter(SessionAdapter());
-        final sessionBox = await Hive.openBox<Session>(
-          sessionKey,
-          encryptionCipher: oldCipher,
-        );
-
-        // get session item
-        var sessionItem = sessionBox.get(sessionItemKey);
-
-        // get first session if session item not found
-        final firstSession = sessionBox.isNotEmpty
-            ? sessionBox.values.first
-            : null;
-
-        // prefer sessionItemKey if exists
-        final session = sessionItem ?? firstSession;
-
-        // check and migrate to secure storage
-        if (session != null) {
-          dev.log(
-            'Old session detected, migrating  to secure token storage...',
-          );
-          final token = AuthToken(
-            accessToken: session.accessToken,
-            refreshToken: session.refreshToken,
-            createdAt: session.createdAt,
-            updatedAt: session.updatedAt,
-          );
-          await SecureStorage.i.setToken(token);
-        }
-        dev.log('cleaning old token storage...');
-        await sessionBox.clear();
-        await sessionBox.deleteFromDisk();
-      } catch (error) {
-        dev.log('Error during migration removing all the old sessions....:');
-        dev.log(error.toString(), error: error);
-        await Hive.deleteBoxFromDisk(sessionKey);
+    try {
+      // check if old box exists
+      final sessionExists = await Hive.boxExists(sessionKey);
+      if (!sessionExists) {
+        dev.log('No old session box found, skipping token migration...');
+        return;
       }
-    } else {
-      dev.log('No old session box found, skipping token migration...');
+
+      // get old encryption key
+      final oldKey = await SecureStorage.i.get(encryptionBoxKey);
+      if (oldKey == null) {
+        dev.log('No old encryption key found, skipping token migration...');
+        // no old encryption key, no need to migrate
+        return;
+      }
+
+      /// create old cipher
+      final oldCipher = HiveAesCipher(base64.decode(oldKey));
+      Hive.registerAdapter(SessionAdapter());
+      final sessionBox = await Hive.openBox<Session>(
+        sessionKey,
+        encryptionCipher: oldCipher,
+      );
+
+      // get session item
+      var sessionItem = sessionBox.get(sessionItemKey);
+
+      // get first session if session item not found
+      final firstSession = sessionBox.isNotEmpty
+          ? sessionBox.values.first
+          : null;
+
+      // prefer sessionItemKey if exists
+      final session = sessionItem ?? firstSession;
+
+      // check and migrate to secure storage
+      if (session != null) {
+        dev.log('Old session detected, migrating  to secure token storage...');
+        final token = AuthToken(
+          accessToken: session.accessToken,
+          refreshToken: session.refreshToken,
+          createdAt: session.createdAt,
+          updatedAt: session.updatedAt,
+        );
+        await SecureStorage.i.setToken(token);
+      }
+      dev.log('cleaning old token storage...');
+      await sessionBox.clear();
+      await sessionBox.deleteFromDisk();
+    } catch (error) {
+      dev.log('Error during migration removing all the old sessions....:');
+      dev.log(error.toString(), error: error);
+      await Hive.deleteBoxFromDisk(sessionKey);
     }
   }
 
@@ -618,44 +622,44 @@ class LocalStorage {
       if (Hive.isBoxOpen(boxName)) boxName: Hive.box(boxName).toMap(),
   });
 
+  /// migrate to new encryption if needed
   static Future<void> _migrateToNewEncryptionIfNeeded(
     HiveCipher? customCipher,
   ) async {
     try {
+      // check if old box exists
+      final isOldBoxExists = await Hive.boxExists(cacheKey);
+      if (!isOldBoxExists) {
+        dev.log('No old cache box found, skipping migration...');
+        await openNewCacheBox(customCipher);
+        return;
+      }
+
+      // get old encryption key
       final oldEncryptionKey = await SecureStorage.i.get(encryptionBoxKey);
       if (oldEncryptionKey == null) {
         dev.log('No old encryption key found, skipping migration...');
         await openNewCacheBox(customCipher);
-        // no old encryption key, no need to migrate
         return;
       }
 
+      // open old box with old encryption key and migrate data
       final oldCipher = HiveAesCipher(base64.decode(oldEncryptionKey));
+      dev.log('Migrating box: $cacheKey to new encryption cipher...');
+      final oldBox = await Hive.openBox<dynamic>(
+        cacheKey,
+        encryptionCipher: oldCipher,
+      );
+      final data = oldBox.toMap();
+      await oldBox.clear();
+      await oldBox.deleteFromDisk();
 
-      if (await Hive.boxExists(cacheKey)) {
-        dev.log('Migrating box: $cacheKey to new encryption cipher...');
-        final oldBox = await Hive.openBox(
-          cacheKey,
-          encryptionCipher: oldCipher,
-        );
-
-        final data = oldBox.toMap();
-
-        await oldBox.clear();
-        await oldBox.deleteFromDisk();
-
-        dev.log('Old box data fetched, opening new box with new cipher...');
-        await SecureStorage.i.delete(encryptionBoxKey);
-        await openNewCacheBox(customCipher);
-        await _cacheBox.putAll(data);
-        // migration successful, remove old encryption key
-        dev.log('Migration successful...');
-      } else {
-        // no old box found, remove old encryption key
-        dev.log('No old box found, removing old encryption key...');
-        await SecureStorage.i.delete(encryptionBoxKey);
-        await openNewCacheBox(customCipher);
-      }
+      dev.log('Old box data fetched, opening new box with new cipher...');
+      await SecureStorage.i.delete(encryptionBoxKey);
+      await openNewCacheBox(customCipher);
+      await _cacheBox.putAll(data);
+      // migration successful, remove old encryption key
+      dev.log('Migration successful...');
     } catch (_) {
       dev.log('Error during migration, clearing all boxes....:');
       await Hive.deleteFromDisk();
@@ -666,8 +670,9 @@ class LocalStorage {
 
   // open new cache box
   static Future<void> openNewCacheBox(HiveCipher? customCipher) async {
-    _cacheBox = await Hive.openBox(
-      cacheKey,
+    dev.log('Opening new cache box: $newCacheBoxKey');
+    _cacheBox = await Hive.openBox<dynamic>(
+      newCacheBoxKey,
       encryptionCipher: await _cipher(customCipher),
     );
   }

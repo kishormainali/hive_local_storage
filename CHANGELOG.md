@@ -1,22 +1,29 @@
-# 2.0.5 (2025-11-17)
+# Changelog
+
+## 2.0.6 (2025-11-24)
+
+- Fixes issue with data migration on some devices
+- Remove old cache box after migration
+
+## 2.0.5 (2025-11-17)
 
 - Improve error handling while migrating old data
 - Fixes session migration issue
 
-# 2.0.4 (2025-11-14)
+## 2.0.4 (2025-11-14)
 
 - Migrate old data with new cipher
 
-# 2.0.3 (2025-11-14)
+## 2.0.3 (2025-11-14)
 
 - LocalStorage.clearAll() now clears session also
 - LocalStorage.clear() now clears all opened boxes including cache box
 
-# 2.0.2 (2025-11-11)
+## 2.0.2 (2025-11-11)
 
 - Updated docs
 
-# 2.0.1 (2025-11-11)
+## 2.0.1 (2025-11-11)
 
 > This is a patch release for version 2.0.0 and contains breaking changes
 
@@ -26,7 +33,7 @@
 - By default, LocalStorage now uses AES GCM encryption. You can add your own encryption cipher by passing customCipher while initializing LocalStorage
 - Added SecureStorage class for secure key-value storage using flutter_secure_storage
 
-# 2.0.0
+## 2.0.0
 
 > This release contains breaking changes
 
