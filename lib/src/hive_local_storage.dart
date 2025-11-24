@@ -134,12 +134,15 @@ class LocalStorage {
   static Future<void> _migrateToTokenStorageIfNeeded(
     HiveCipher? customCipher,
   ) async {
-    final sessionExists = await Hive.boxExists(sessionKey);
-    if (!sessionExists) {
-      dev.log('No old session box found, skipping token migration...');
-      return;
-    }
     try {
+      // check if old box exists
+      final sessionExists = await Hive.boxExists(sessionKey);
+      if (!sessionExists) {
+        dev.log('No old session box found, skipping token migration...');
+        return;
+      }
+
+      // get old encryption key
       final oldKey = await SecureStorage.i.get(encryptionBoxKey);
       if (oldKey == null) {
         dev.log('No old encryption key found, skipping token migration...');
@@ -667,15 +670,10 @@ class LocalStorage {
 
   // open new cache box
   static Future<void> openNewCacheBox(HiveCipher? customCipher) async {
-    if (await Hive.boxExists(newCacheBoxKey)) {
-      dev.log('Opening existing cache box: $newCacheBoxKey');
-      _cacheBox = Hive.box<dynamic>(newCacheBoxKey);
-    } else {
-      dev.log('Opening new cache box: $newCacheBoxKey');
-      _cacheBox = await Hive.openBox<dynamic>(
-        newCacheBoxKey,
-        encryptionCipher: await _cipher(customCipher),
-      );
-    }
+    dev.log('Opening new cache box: $newCacheBoxKey');
+    _cacheBox = await Hive.openBox<dynamic>(
+      newCacheBoxKey,
+      encryptionCipher: await _cipher(customCipher),
+    );
   }
 }
