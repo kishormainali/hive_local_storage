@@ -50,10 +50,10 @@ class JwtDecoder {
   ///
   /// Throws [FormatException] if parameter is not a valid JWT token.
   static bool isExpired(String token) {
-    final expirationDate = getExpirationDate(token);
+    final (expirationDate, isValid) = getExpirationDate(token);
 
     // Check if the expiration date is valid
-    if (expirationDate == DateTime.fromMillisecondsSinceEpoch(0)) {
+    if (!isValid) {
       // If there is no expiration date, consider the token as expired
       dev.log('Token has no expiration date - considering it expired');
       return true;
@@ -65,19 +65,23 @@ class JwtDecoder {
 
   /// Returns token expiration date
   ///
-  /// Throws [FormatException] if parameter is not a valid JWT token.
-  static DateTime getExpirationDate(String token) {
+  static (DateTime, bool) getExpirationDate(String token) {
     final decodedToken = tryDecode(token);
 
     if (decodedToken == null || !decodedToken.containsKey('exp')) {
       dev.log('Token has no expiration date - considering it expired');
-      return DateTime.fromMillisecondsSinceEpoch(0);
+      return (DateTime.now(), false);
     }
 
-    final expirationDate = DateTime.fromMillisecondsSinceEpoch(
-      0,
-    ).add(Duration(seconds: decodedToken['exp'].toInt()));
-    return expirationDate;
+    // 'exp' claim is in seconds since epoch
+    final exp = int.tryParse(decodedToken['exp'].toString());
+    if (exp == null || exp <= 0) {
+      dev.log(
+        'Token expiration date is not an integer - considering it expired',
+      );
+      return (DateTime.now(), false);
+    }
+    return (getDateFromTimeStamp(exp), true);
   }
 
   /// Returns token issuing date (iat)
@@ -90,9 +94,13 @@ class JwtDecoder {
       return Duration.zero;
     }
 
-    final issuedAtDate = DateTime.fromMillisecondsSinceEpoch(
-      0,
-    ).add(Duration(seconds: decodedToken["iat"]));
+    final iat = int.tryParse(decodedToken['iat'].toString());
+    if (iat == null || iat <= 0) {
+      dev.log('Token issuing date is not an integer - considering it invalid');
+      return Duration.zero;
+    }
+
+    final issuedAtDate = getDateFromTimeStamp(iat);
     return DateTime.now().difference(issuedAtDate);
   }
 
@@ -100,7 +108,21 @@ class JwtDecoder {
   ///
   /// Throws [FormatException] if parameter is not a valid JWT token.
   static Duration getRemainingTime(String token) {
-    final expirationDate = getExpirationDate(token);
+    final (expirationDate, isValid) = getExpirationDate(token);
+    if (!isValid) {
+      dev.log('Token has no expiration date - considering it expired');
+      return Duration.zero;
+    }
     return expirationDate.difference(DateTime.now());
+  }
+
+  /// Converts a timestamp to a DateTime object.
+  /// The timestamp can be in seconds or milliseconds.
+  static DateTime getDateFromTimeStamp(int timestamp) {
+    if (timestamp > 1e12) {
+      return DateTime.fromMillisecondsSinceEpoch(timestamp);
+    } else {
+      return DateTime.fromMillisecondsSinceEpoch(timestamp * 1000);
+    }
   }
 }
