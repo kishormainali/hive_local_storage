@@ -135,12 +135,3 @@ class JwtDecoder {
     }
   }
 }
-
-void main() {
-  final token =
-      'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWUsImlhdCI6MTUxNjIzOTAyMiwiZXhwIjoxNzY0MjM5OTk2fQ.iXeKl7i9PVK62uW3RlPbIrVpeISoB3cGXsLmEUR5qqQ';
-  final decoded = JwtDecoder.decode(token);
-  print('Decoded JWT Payload: $decoded');
-  final isExpired = JwtDecoder.isExpired(token);
-  print('Is token expired? $isExpired');
-}
