@@ -9,7 +9,14 @@ class JwtDecoder {
   ///
   /// Throws [FormatException] if parameter is not a valid JWT token.
   static Map<String, dynamic> decode(String token) {
-    final splitToken = token.split("."); // Split the token by '.'
+    // Remove 'Bearer ' prefix if present
+    final tokenParts = token.split(' ');
+    if (tokenParts.length == 2 && tokenParts[0] == 'Bearer') {
+      token = tokenParts[1];
+    }
+
+    // Split the token by '.'
+    final splitToken = token.split(".");
     if (splitToken.length != 3) {
       throw const FormatException('Invalid token');
     }
@@ -51,6 +58,8 @@ class JwtDecoder {
   /// Throws [FormatException] if parameter is not a valid JWT token.
   static bool isExpired(String token) {
     final (expirationDate, isValid) = getExpirationDate(token);
+
+    print(expirationDate);
 
     // Check if the expiration date is valid
     if (!isValid) {
@@ -125,4 +134,13 @@ class JwtDecoder {
       return DateTime.fromMillisecondsSinceEpoch(timestamp * 1000);
     }
   }
+}
+
+void main() {
+  final token =
+      'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWUsImlhdCI6MTUxNjIzOTAyMiwiZXhwIjoxNzY0MjM5OTk2fQ.iXeKl7i9PVK62uW3RlPbIrVpeISoB3cGXsLmEUR5qqQ';
+  final decoded = JwtDecoder.decode(token);
+  print('Decoded JWT Payload: $decoded');
+  final isExpired = JwtDecoder.isExpired(token);
+  print('Is token expired? $isExpired');
 }
