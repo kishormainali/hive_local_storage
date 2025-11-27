@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.0.7 (2025-11-27)
+
+- Improve date expiration logic in access token
+
 ## 2.0.6 (2025-11-24)
 
 - Fixes issue with data migration on some devices
