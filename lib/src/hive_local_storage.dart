@@ -505,13 +505,13 @@ class LocalStorage {
   /// save list of data
   Future<void> putList<T>({required String key, required List<T> value}) async {
     final encodedData = jsonEncode(value);
-    return _cacheBox.put(key, encodedData);
+    return _lock.synchronized(() => _cacheBox.put(key, encodedData));
   }
 
   /// save
   /// puts value in box with [key]
   Future<void> putAll({required Map<String, dynamic> entries}) async {
-    return _cacheBox.putAll(entries);
+    return _lock.synchronized(() => _cacheBox.putAll(entries));
   }
 
   /// clear
@@ -574,7 +574,7 @@ class LocalStorage {
   /// clearAll
   /// clear all values from  cache box
   /// clears all boxes created using `openBox()`
-  /// also clears token/session storage
+  /// also deletes token from secure storage
   Future<void> clearAll() async {
     return _lock.synchronized(() async {
       final futures = <Future>[];
@@ -588,22 +588,17 @@ class LocalStorage {
       }
       await Future.wait([
         SecureStorage.i.deleteToken(),
-        SecureStorage.i.clear(),
         _cacheBox.clear(),
         ...futures,
       ]);
     });
   }
 
-  /// close all the opened box and clear token storage
+  /// close all the opened boxes
   Future<void> closeAll() async {
     await _lock.synchronized(() {
       _openedBoxes.clear();
-      return Future.wait([
-        SecureStorage.i.clear(),
-        _cacheBox.close(),
-        Hive.close(),
-      ]);
+      return Future.wait([_cacheBox.close(), Hive.close()]);
     });
   }
 
@@ -611,7 +606,11 @@ class LocalStorage {
   Future<void> deleteAll() async {
     await _lock.synchronized(() {
       _openedBoxes.clear();
-      return Future.wait([_cacheBox.deleteFromDisk(), Hive.deleteFromDisk()]);
+      return Future.wait([
+        _cacheBox.deleteFromDisk(),
+        Hive.deleteFromDisk(),
+        SecureStorage.i.delete(newEncryptionBoxKey),
+      ]);
     });
   }
 
