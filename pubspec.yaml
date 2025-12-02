@@ -1,6 +1,6 @@
 name: hive_local_storage
 description: A cache helper which uses hive_ce and flutter_secure_storage to make ease to store session and encrypted data
-version: 2.0.8
+version: 2.0.9
 homepage: https://github.com/kishormainali/hive_local_storage
 repository: https://github.com/kishormainali/hive_local_storage
 topics:
