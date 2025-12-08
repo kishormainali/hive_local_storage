@@ -420,6 +420,38 @@ class LocalStorage {
   /// getter to access updatedAt
   Future<DateTime?> get updatedAt async => (await token)?.updatedAt;
 
+  /// accessToken Remaining Time
+  /// getter to access accessToken remaining time
+  Future<Duration> get accessTokenRemainingTime async {
+    final token = await this.token;
+    if (token == null) return Duration.zero;
+    return token.accessTokenRemainingTime;
+  }
+
+  /// accessToken Time
+  /// getter to access accessToken issuing time
+  Future<Duration> get accessTokenTime async {
+    final token = await this.token;
+    if (token == null) return Duration.zero;
+    return token.accessTokenTime;
+  }
+
+  /// refreshToken Time
+  /// getter to access refreshToken issuing time
+  Future<Duration> get refreshTokenTime async {
+    final token = await this.token;
+    if (token == null) return Duration.zero;
+    return token.refreshTokenTime;
+  }
+
+  /// refreshToken Remaining Time
+  /// getter to access refreshToken remaining time
+  Future<Duration> get refreshTokenRemainingTime async {
+    final token = await this.token;
+    if (token == null) return Duration.zero;
+    return token.refreshTokenRemainingTime;
+  }
+
   /// `onSessionChange`
   /// returns stream of [bool] when data changes on box
   @Deprecated('Use onTokenChange instead')
