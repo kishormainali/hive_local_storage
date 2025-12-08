@@ -101,6 +101,32 @@ class AuthToken {
   /// Tells whether the access token can be refreshed.
   bool get canRefresh => refreshToken != null && !isRefreshTokenExpired;
 
+  /// Returns access token issuing date (iat)
+  Duration get accessTokenTime {
+    return JwtDecoder.getTokenTime(accessToken);
+  }
+
+  /// Remaining time before the access token expires.
+  Duration get accessTokenRemainingTime {
+    return JwtDecoder.getRemainingTime(accessToken);
+  }
+
+  /// Remaining time before the refresh token expires.
+  Duration get refreshTokenRemainingTime {
+    if (refreshToken == null) {
+      return Duration.zero;
+    }
+    return JwtDecoder.getRemainingTime(refreshToken!);
+  }
+
+  /// Returns refresh token issuing date (iat)
+  Duration get refreshTokenTime {
+    if (refreshToken == null) {
+      return Duration.zero;
+    }
+    return JwtDecoder.getTokenTime(refreshToken!);
+  }
+
   @override
   int get hashCode =>
       Object.hashAll([accessToken, refreshToken, createdAt, updatedAt]);

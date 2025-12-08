@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.0.11 (2025-12-08)
+
+- Export token remaining time and token issued time in duration
+
 ## 2.0.10 (2025-12-04)
 
 - Export SecureStorage class from LocalStorage package
