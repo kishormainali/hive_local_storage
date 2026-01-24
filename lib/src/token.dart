@@ -13,6 +13,7 @@ import 'jwt_decoder.dart';
 ///   refreshToken: 'your-refresh-token',
 /// );
 /// ```
+@Deprecated('Use AuthToken instead')
 class Session extends AuthToken {
   /// Creates a new [Session] instance.
   ///
@@ -33,7 +34,11 @@ class Session extends AuthToken {
   }
 }
 
+/// {@template auth_token}
+/// Represents authentication tokens and their associated metadata.
+/// {@endtemplate}
 class AuthToken {
+  /// {@macro auth_token}
   /// Creates a new [AuthToken] instance.
   ///
   /// The [accessToken] is required and represents the primary authentication token.
