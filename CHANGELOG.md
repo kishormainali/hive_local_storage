@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.0.12 (2026-01-24)
+
+- Updated dependencies to latest versions
+
 ## 2.0.11 (2025-12-08)
 
 - Export token remaining time and token issued time in duration
