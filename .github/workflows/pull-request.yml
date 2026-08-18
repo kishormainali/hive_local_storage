@@ -1,26 +1,30 @@
-# .github/workflows/pull-request.yml
 name: Review PR
+
 on:
   pull_request:
 
 jobs:
-  publish:
+  review:
+    name: Test & Analyze
     runs-on: ubuntu-latest
     steps:
-      - name: 📚 Git Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: 🐦 Setup Flutter
+      - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: stable
+          channel: 'stable'
           cache: true
 
-      - name: 📦 Install Dependencies
+      - name: Install dependencies
         run: flutter pub get
 
-      - name: 📝 Format Code
-        run: dart format .
+      - name: Verify formatting
+        run: dart format --output=none --set-exit-if-changed .
 
-      - name: 📝 Analyze Code
-        run: dart analyze .
+      - name: Analyze code
+        run: flutter analyze
+
+      - name: Run tests
+        run: flutter test

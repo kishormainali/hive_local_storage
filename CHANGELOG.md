@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.13 (2026-08-18)
+
+- Migrated GitHub Actions publish workflow to use GitHub OIDC authentication
+- Updated dependencies to latest versions
+
 ## 2.0.12 (2026-01-24)
 
 - Updated dependencies to latest versions
