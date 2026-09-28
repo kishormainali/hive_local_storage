@@ -44,19 +44,31 @@ class AesGcmCipher implements HiveCipher {
   /// This is used to verify the key integrity without exposing the actual key.
   late final int _keyCrc;
 
+  /// Shared secure RNG. [Random.secure] pulls from the platform's CSPRNG on
+  /// construction, so a single cached instance is reused for every IV
+  /// instead of paying that setup cost on every encrypt call.
+  static final Random _secureRandom = Random.secure();
+
+  /// Reused GCM/AES engine instances (one per direction) to avoid allocating
+  /// a fresh [AESEngine]/[GCMBlockCipher] on every encrypt/decrypt call.
+  /// Each call still re-initializes them with a fresh IV, as required by GCM.
+  late final GCMBlockCipher _encryptCipher = GCMBlockCipher(AESEngine());
+  late final GCMBlockCipher _decryptCipher = GCMBlockCipher(AESEngine());
+
   /// Generates a cryptographically secure random initialization vector (IV).
   ///
-  /// Uses [Random.secure] to generate random bytes for the IV.
+  /// Uses the cached [_secureRandom] to generate random bytes for the IV.
   ///
   /// Parameters:
   /// - [length]: The length of the IV in bytes (typically 12 for GCM mode)
   ///
   /// Returns a [Uint8List] containing the random IV.
   Uint8List _generateIV(int length) {
-    final rnd = Random.secure();
-    return Uint8List.fromList(
-      List<int>.generate(length, (_) => rnd.nextInt(256)),
-    );
+    final iv = Uint8List(length);
+    for (var i = 0; i < length; i++) {
+      iv[i] = _secureRandom.nextInt(256);
+    }
+    return iv;
   }
 
   /// Calculates and returns the CRC32 checksum of the encryption key.
@@ -95,10 +107,12 @@ class AesGcmCipher implements HiveCipher {
     final iv = inp.sublist(inpOff, inpOff + 12);
     final cipherText = inp.sublist(inpOff + 12, inpOff + inpLength);
 
-    final gcm = GCMBlockCipher(AESEngine())
-      ..init(false, AEADParameters(KeyParameter(key), 128, iv, Uint8List(0)));
+    _decryptCipher.init(
+      false,
+      AEADParameters(KeyParameter(key), 128, iv, Uint8List(0)),
+    );
 
-    final decrypted = gcm.process(cipherText);
+    final decrypted = _decryptCipher.process(cipherText);
     out.setRange(outOff, outOff + decrypted.length, decrypted);
 
     return decrypted.length;
@@ -127,11 +141,13 @@ class AesGcmCipher implements HiveCipher {
     int outOff,
   ) {
     final iv = _generateIV(12);
-    final gcm = GCMBlockCipher(AESEngine())
-      ..init(true, AEADParameters(KeyParameter(key), 128, iv, Uint8List(0)));
+    _encryptCipher.init(
+      true,
+      AEADParameters(KeyParameter(key), 128, iv, Uint8List(0)),
+    );
 
     final plaintext = inp.sublist(inpOff, inpOff + inpLength);
-    final encrypted = gcm.process(plaintext);
+    final encrypted = _encryptCipher.process(plaintext);
 
     // Store: IV (12) | cipherText + tag (encrypted)
     out.setRange(outOff, outOff + iv.length, iv);

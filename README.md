@@ -2,10 +2,10 @@
 
 <hr>
 
-A utility package to storage user session and cache values in hive box
+A utility package that wraps hive_ce to make it easy to store and encrypt local data
 
 - uses hive_ce for caching
-- uses flutter_secure_storage to storage encryption key of secured hive box for session storage
+- uses flutter_secure_storage internally to store the encryption key of the encrypted hive box
 
 ### Get Started
 
@@ -32,16 +32,11 @@ dev_dependencies:
 
 ### Registering Custom Adapters
 
-**NOTE: avoid using typeId=0 for data classes because typeId=0 is already used by session class.**
-
-As Session is using typeId 0 make sure to add 0 in reserved type ids while initializing @GenerateAdapters of hive_ce
-
 ```dart
 part 'hive_adapters.g.dart';
   @GenerateAdapters(
     [AdapterSpec<Contact>(), AdapterSpec<User>()],
     firstTypeId: 1,
-    reservedTypeIds: {0},
   )
   // ignore: unused_element
   void _() {}
@@ -53,42 +48,6 @@ and import extension function Hive.registerAdapters generated using hive_ce_gene
 ```dart
   await LocalStorage.initialize(registerAdapters:Hive.registerAdapters);
 ```
-
-### Session
-
-hive_local_storage provides easy mechanism to store session using encrypted box
-
-- #### Store Session
-  ```dart
-    await LocalStorage.i.saveToken('accessToken','refreshToken'); // refreshToken is optional
-  ```
-- #### Get Session
-
-  ```dart
-     // get access token
-     final accessToken  = await LocalStorage.i.accessToken;
-
-     // get refresh token
-     final refreshToken = await LocalStorage.i.refreshToken;
-
-     // check whether session is saved or not
-     final bool hasToken = await LocalStorage.i.hasToken;
-
-     // listen whether session is present or not
-     StreamSubscription<bool> _subscription = LocalStorage.i.onTokenChange.listen((bool hasToken){
-      // do your stuff
-     });
-     // cancel your subscription on close/dispose method;
-     _subscription.cancel();
-
-    //to check whether accessToken is expired or not
-    final isTokenExpired = await LocalStorage.i.isTokenExpired;
-  ```
-
-- ### Remove Session
-  ```dart
-      await LocalStorage.i.clearSession();
-  ```
 
 ### Opening Custom Boxes
 
@@ -222,7 +181,7 @@ await LocalStorage.i.remove(key:'count');
 // remove all from cache box
 await LocalStorage.i.clear();
 
-// clear both session and cache box
+// clear cache box and all custom boxes opened via openBox()
 await LocalStorage.i.clearAll();
 
 ```

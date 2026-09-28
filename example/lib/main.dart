@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:math';
 
 import 'package:example/hive/hive_registrar.g.dart';
@@ -59,9 +58,6 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   int _counter = 0;
-  bool _isLoggedIn = false;
-
-  StreamSubscription<bool>? _sessionStream;
 
   User? _user;
   Contact? _contact;
@@ -77,11 +73,6 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void _init() async {
-    _sessionStream = LocalStorage.i.onTokenChange.listen((event) {
-      setState(() {
-        _isLoggedIn = event;
-      });
-    });
     _counter = LocalStorage.i.get<int>(key: 'counter', defaultValue: 0)!;
 
     LocalStorage.i.watchKey<int>(key: 'counter').listen((event) {
@@ -119,7 +110,6 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   void dispose() {
-    _sessionStream?.cancel();
     super.dispose();
   }
 
@@ -157,26 +147,12 @@ class _MyHomePageState extends State<MyHomePage> {
               style: Theme.of(context).textTheme.headlineMedium,
             ),
             ElevatedButton(onPressed: _remove, child: const Text('remove')),
-            ElevatedButton(
-              onPressed: () async {
-                await LocalStorage.i.saveToken('test_text_token');
-              },
-              child: const Text('Login'),
-            ),
-
-            Text('Has session: $_isLoggedIn'),
 
             SizedBox(height: 20),
             Text('User: ${_user.toString()}'),
             SizedBox(height: 20),
             Text('Contact: ${_contact.toString()}'),
 
-            ElevatedButton(
-              onPressed: () async {
-                await LocalStorage.i.clearSession();
-              },
-              child: Text('Logout'),
-            ),
             ElevatedButton(
               onPressed: () async {
                 await LocalStorage.i.clear();

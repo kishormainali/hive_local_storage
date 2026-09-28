@@ -1,5 +1,23 @@
 # Changelog
 
+## 3.0.0 (2026-09-28)
+
+- **BREAKING**: Removed token/session storage. `hive_local_storage` is now a pure Hive wrapper.
+  - Removed `AuthToken`, `Session`, `SecureStorage`, and `JwtDecoder` from the public API.
+  - Removed `LocalStorage` token/session members: `token`, `accessToken`, `refreshToken`, `createdAt`, `updatedAt`,
+    `accessTokenRemainingTime`, `accessTokenTime`, `refreshTokenTime`, `refreshTokenRemainingTime`,
+    `onSessionChange`, `hasSession`, `hasToken`, `onTokenChange`, `saveToken`, `isTokenExpired`, `clearSession`.
+  - Removed the one-time session-to-token-storage migration.
+  - Removed the `rxdart` dependency.
+  - `flutter_secure_storage` is still used internally to persist the Hive box encryption key.
+- Performance: replaced the single global write lock with per-box locks, so writes to independent boxes no longer
+  serialize behind each other.
+- Performance: `openBox`/`getBox` short-circuit on an already-open box instead of re-acquiring the lock or doing an
+  extra disk existence check.
+- Performance: `AesGcmCipher` now reuses its secure RNG and cipher engine instances instead of allocating new ones
+  on every encrypt/decrypt call.
+- Fixed a redundant duplicate box read in `getList`.
+
 ## 2.0.13 (2026-08-18)
 
 - Migrated GitHub Actions publish workflow to use GitHub OIDC authentication

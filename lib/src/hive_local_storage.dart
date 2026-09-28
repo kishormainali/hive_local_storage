@@ -1,19 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:developer' as dev;
-
-// ignore: depend_on_referenced_packages
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
 import 'package:hive_local_storage/src/_crypto/aes_gcm_cipher.dart';
-import 'package:hive_local_storage/src/_session_adaptor.dart';
 import 'package:pointycastle/export.dart';
 import 'package:synchronized/synchronized.dart';
 
-import 'secure_storage.dart';
-import 'token.dart';
+import '_secure_storage.dart';
 
 /// {@template local_storage}
 /// A wrapper class for session and cache box uses [Hive]
@@ -73,14 +68,17 @@ class LocalStorage {
   /// returns the singleton instance of [LocalStorage]
   factory LocalStorage() => instance;
 
-  /// lock for synchronizing access
+  /// lock guarding structural changes (opening/closing/clearing boxes,
+  /// migrations) that touch shared state such as [_openedBoxes]/[_cacheBox].
   static final _lock = Lock();
 
-  /// session box key
-  static const String sessionKey = '__JWT_SESSION_KEY__';
+  /// per-box locks so writes to independent boxes don't serialize behind
+  /// each other; only concurrent access to the *same* box is synchronized.
+  static final Map<String, Lock> _boxLocks = {};
 
-  // session item key
-  static const String sessionItemKey = '__JWT_SESSION_ITEM_KEY__';
+  /// returns (creating if needed) the lock for [boxName]
+  static Lock _lockFor(String boxName) =>
+      _boxLocks.putIfAbsent(boxName, Lock.new);
 
   /// cache key
   static const String cacheKey = '__CACHE_KEY__';
@@ -119,70 +117,11 @@ class LocalStorage {
       // register adapters
       registerAdapters?.call();
 
-      // migrate session to token storage if needed
-      await _migrateToTokenStorageIfNeeded(customCipher);
-
       /// migrate to new encryption if needed
       await _migrateToNewEncryptionIfNeeded(customCipher);
     });
 
     _instance ??= LocalStorage._();
-  }
-
-  /// migrate existing session to token storage
-  /// this is a one-time migration
-  static Future<void> _migrateToTokenStorageIfNeeded(
-    HiveCipher? customCipher,
-  ) async {
-    try {
-      // check if old box exists
-      final sessionExists = await Hive.boxExists(sessionKey);
-      if (!sessionExists) {
-        return;
-      }
-
-      // get old encryption key
-      final oldKey = await SecureStorage.i.get(encryptionBoxKey);
-      if (oldKey == null) {
-        // no old encryption key, no need to migrate
-        return;
-      }
-
-      /// create old cipher
-      final oldCipher = HiveAesCipher(base64.decode(oldKey));
-      Hive.registerAdapter(SessionAdapter());
-      final sessionBox = await Hive.openBox<Session>(
-        sessionKey,
-        encryptionCipher: oldCipher,
-      );
-
-      // get session item
-      var sessionItem = sessionBox.get(sessionItemKey);
-
-      // get first session if session item not found
-      final firstSession = sessionBox.isNotEmpty
-          ? sessionBox.values.first
-          : null;
-
-      // prefer sessionItemKey if exists
-      final session = sessionItem ?? firstSession;
-
-      // check and migrate to secure storage
-      if (session != null) {
-        final token = AuthToken(
-          accessToken: session.accessToken,
-          refreshToken: session.refreshToken,
-          createdAt: session.createdAt,
-          updatedAt: session.updatedAt,
-        );
-        await SecureStorage.i.setToken(token);
-      }
-      await sessionBox.clear();
-      await sessionBox.deleteFromDisk();
-    } catch (error) {
-      dev.log(error.toString(), error: error);
-      await Hive.deleteBoxFromDisk(sessionKey);
-    }
   }
 
   /// returns encryption cipher for boxes
@@ -221,10 +160,16 @@ class LocalStorage {
     HiveCipher? customCipher,
     int? typeId,
   }) async {
+    // already open: return immediately, skip locking and cipher lookup
+    if (Hive.isBoxOpen(boxName)) {
+      return Hive.box<T>(boxName);
+    }
     if (typeId != null && !Hive.isAdapterRegistered(typeId)) {
       throw Exception('Please register adapter for $T.');
     }
     return await _lock.synchronized(() async {
+      // re-check: another caller may have opened it while we awaited the lock
+      if (Hive.isBoxOpen(boxName)) return Hive.box<T>(boxName);
       _openedBoxes.add(boxName);
       return Hive.openBox<T>(
         boxName,
@@ -236,7 +181,9 @@ class LocalStorage {
   /// `getBox`
   /// returns the previously opened box
   Future<Box<T>> getBox<T>(String name) async {
-    if (Hive.isBoxOpen(name) && (await Hive.boxExists(name))) {
+    // `isBoxOpen` already implies the box exists; no need for an extra
+    // async disk existence check.
+    if (Hive.isBoxOpen(name)) {
       return Hive.box<T>(name);
     } else {
       throw Exception('Please `openBox` before accessing it');
@@ -253,7 +200,7 @@ class LocalStorage {
   }) async {
     if (boxName != null) {
       if (Hive.isBoxOpen(boxName)) {
-        await _lock.synchronized(() {
+        await _lockFor(boxName).synchronized(() {
           final box = Hive.box<T>(boxName);
           return box.put(key, value);
         });
@@ -261,7 +208,9 @@ class LocalStorage {
         throw Exception('Please `openBox` before accessing it');
       }
     } else {
-      await _lock.synchronized(() => _cacheBox.put(key, value));
+      await _lockFor(
+        newCacheBoxKey,
+      ).synchronized(() => _cacheBox.put(key, value));
     }
   }
 
@@ -295,12 +244,12 @@ class LocalStorage {
     if (boxName != null) {
       if (Hive.isBoxOpen(boxName)) {
         final box = Hive.box<T>(boxName);
-        await _lock.synchronized(() => box.delete(key));
+        await _lockFor(boxName).synchronized(() => box.delete(key));
       } else {
         throw Exception('Please `openBox` before accessing it');
       }
     } else {
-      await _lock.synchronized(() => _cacheBox.delete(key));
+      await _lockFor(newCacheBoxKey).synchronized(() => _cacheBox.delete(key));
     }
   }
 
@@ -324,7 +273,7 @@ class LocalStorage {
   /// add data to custom box
   Future<void> add<T>({required String boxName, required T value}) async {
     if (Hive.isBoxOpen(boxName)) {
-      await _lock.synchronized(() {
+      await _lockFor(boxName).synchronized(() {
         final box = Hive.box<T>(boxName);
         return box.add(value);
       });
@@ -340,7 +289,7 @@ class LocalStorage {
     required List<T> values,
   }) async {
     if (Hive.isBoxOpen(boxName)) {
-      await _lock.synchronized(() {
+      await _lockFor(boxName).synchronized(() {
         final box = Hive.box<T>(boxName);
         return box.addAll(values);
       });
@@ -360,11 +309,13 @@ class LocalStorage {
   }) async {
     if (Hive.isBoxOpen(boxName)) {
       final box = Hive.box<T>(boxName);
-      final data = box.values.firstWhereOrNull(
-        filter ?? (element) => element == value,
-      );
-      if (data != null) await _lock.synchronized(() => data.delete());
-      await _lock.synchronized(() => box.add(value));
+      await _lockFor(boxName).synchronized(() async {
+        final data = box.values.firstWhereOrNull(
+          filter ?? (element) => element == value,
+        );
+        if (data != null) await data.delete();
+        await box.add(value);
+      });
     } else {
       throw Exception('Please `openBox` before accessing it');
     }
@@ -381,107 +332,15 @@ class LocalStorage {
   }) async {
     if (Hive.isBoxOpen(boxName)) {
       final box = Hive.box<T>(boxName);
-      final data = box.values.firstWhereOrNull(
-        filter ?? (element) => element == value,
-      );
-      await _lock.synchronized(() => data?.delete());
+      await _lockFor(boxName).synchronized(() {
+        final data = box.values.firstWhereOrNull(
+          filter ?? (element) => element == value,
+        );
+        return data?.delete();
+      });
     } else {
       throw Exception('Please `openBox` before accessing it');
     }
-  }
-
-  /// private getter to access session
-  Future<AuthToken?> get token => SecureStorage.i.getToken();
-
-  /// refreshToken
-  /// getter to access accessToken
-  Future<String?> get accessToken async => SecureStorage.i.accessToken;
-
-  /// refreshToken
-  /// getter to access refreshToken
-  Future<String?> get refreshToken async => SecureStorage.i.refreshToken;
-
-  /// createdAt
-  /// getter to access createdAt
-  Future<DateTime?> get createdAt async => (await token)?.createdAt;
-
-  /// updatedAt
-  /// getter to access updatedAt
-  Future<DateTime?> get updatedAt async => (await token)?.updatedAt;
-
-  /// accessToken Remaining Time
-  /// getter to access accessToken remaining time
-  Future<Duration> get accessTokenRemainingTime async {
-    final token = await this.token;
-    if (token == null) return Duration.zero;
-    return token.accessTokenRemainingTime;
-  }
-
-  /// accessToken Time
-  /// getter to access accessToken issuing time
-  Future<Duration> get accessTokenTime async {
-    final token = await this.token;
-    if (token == null) return Duration.zero;
-    return token.accessTokenTime;
-  }
-
-  /// refreshToken Time
-  /// getter to access refreshToken issuing time
-  Future<Duration> get refreshTokenTime async {
-    final token = await this.token;
-    if (token == null) return Duration.zero;
-    return token.refreshTokenTime;
-  }
-
-  /// refreshToken Remaining Time
-  /// getter to access refreshToken remaining time
-  Future<Duration> get refreshTokenRemainingTime async {
-    final token = await this.token;
-    if (token == null) return Duration.zero;
-    return token.refreshTokenRemainingTime;
-  }
-
-  /// `onSessionChange`
-  /// returns stream of [bool] when data changes on box
-  @Deprecated('Use onTokenChange instead')
-  Stream<bool> get onSessionChange => SecureStorage.i.onTokenChange;
-
-  /// `hasSession`
-  /// checks whether `Box<Session>` is not empty or [Session] is not null
-  @Deprecated('Use hasToken instead')
-  Future<bool> get hasSession => hasToken;
-
-  /// `hasToken`
-  /// checks whether `AuthToken` is not null
-  Future<bool> get hasToken => SecureStorage.i.hasToken;
-
-  /// `onTokenChange`
-  /// returns stream of [bool] when data changes on token
-  Stream<bool> get onTokenChange => SecureStorage.i.onTokenChange;
-
-  /// `saveToken`
-  /// updates access token if exists or saves new one if not
-  /// updates refresh token
-  Future<void> saveToken(String token, [String? refreshToken]) async {
-    _lock.synchronized(() async {
-      return SecureStorage.i.setToken(
-        AuthToken(accessToken: token, refreshToken: refreshToken),
-      );
-    });
-  }
-
-  /// `isTokenExpired`
-  /// checks whether token is expired or not
-  Future<bool?> get isTokenExpired async {
-    final token = await this.token;
-    if (token == null) return null;
-    return token.isAccessTokenExpired;
-  }
-
-  /// clearSession
-  /// removes the [Token] value from SecureStorage
-  Future<void> clearSession() async {
-    await _lock.synchronized(SecureStorage.i.deleteToken);
   }
 
   /// watchKey
@@ -513,7 +372,7 @@ class LocalStorage {
     try {
       final String encodedData = _cacheBox.get(key, defaultValue: '');
       if (encodedData.isEmpty) return defaultValue;
-      final decodedData = jsonDecode(_cacheBox.get(key));
+      final decodedData = jsonDecode(encodedData);
       return List<T>.of(decodedData);
     } catch (_) {
       _cacheBox.delete(key).ignore();
@@ -524,13 +383,17 @@ class LocalStorage {
   /// save list of data
   Future<void> putList<T>({required String key, required List<T> value}) async {
     final encodedData = jsonEncode(value);
-    return _lock.synchronized(() => _cacheBox.put(key, encodedData));
+    return _lockFor(
+      newCacheBoxKey,
+    ).synchronized(() => _cacheBox.put(key, encodedData));
   }
 
   /// save
   /// puts value in box with [key]
   Future<void> putAll({required Map<String, dynamic> entries}) async {
-    return _lock.synchronized(() => _cacheBox.putAll(entries));
+    return _lockFor(
+      newCacheBoxKey,
+    ).synchronized(() => _cacheBox.putAll(entries));
   }
 
   /// clear
@@ -553,7 +416,7 @@ class LocalStorage {
     required String key,
     required T value,
   }) async {
-    return _lock.synchronized(() async {
+    return _lockFor(boxName).synchronized(() async {
       /// open new box
       final box = await Hive.openBox<T>(
         boxName,
@@ -574,7 +437,7 @@ class LocalStorage {
     required String key,
     required String boxName,
   }) async {
-    return _lock.synchronized(() async {
+    return _lockFor(boxName).synchronized(() async {
       /// open new box
       final box = await Hive.openBox<T>(
         boxName,
@@ -593,7 +456,6 @@ class LocalStorage {
   /// clearAll
   /// clear all values from  cache box
   /// clears all boxes created using `openBox()`
-  /// also deletes token from secure storage
   Future<void> clearAll() async {
     return _lock.synchronized(() async {
       final futures = <Future>[];
@@ -605,11 +467,7 @@ class LocalStorage {
           }
         }
       }
-      await Future.wait([
-        SecureStorage.i.deleteToken(),
-        _cacheBox.clear(),
-        ...futures,
-      ]);
+      await Future.wait([_cacheBox.clear(), ...futures]);
     });
   }
 
