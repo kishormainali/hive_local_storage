@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.0.1 (2026-10-09)
+
+- **Fix**: `LocalStorage.initialize` no longer crashes with `HiveError: Could not read the box` when the cache box is corrupted or the cipher is wrong. The unreadable box and its key are reset and a fresh box is opened (existing data in that box is lost).
+- Updated `hive_ce` to `^2.20.2`.
+
 ## 3.0.0 (2026-09-28)
 
 - **BREAKING**: Removed token/session storage. `hive_local_storage` is now a pure Hive wrapper.

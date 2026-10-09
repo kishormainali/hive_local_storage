@@ -532,16 +532,29 @@ class LocalStorage {
       await _cacheBox.putAll(data);
     } catch (_) {
       await Hive.deleteFromDisk();
-      SecureStorage.i.delete(encryptionBoxKey);
+      await SecureStorage.i.delete(encryptionBoxKey);
       await openNewCacheBox(customCipher);
     }
   }
 
   // open new cache box
+  // if the box is unreadable (wrong cipher / corrupted), wipe it and the key
+  // and start fresh instead of crashing on initialize
   static Future<void> openNewCacheBox(HiveCipher? customCipher) async {
-    _cacheBox = await Hive.openBox<dynamic>(
-      newCacheBoxKey,
-      encryptionCipher: await _cipher(customCipher),
-    );
+    try {
+      _cacheBox = await Hive.openBox<dynamic>(
+        newCacheBoxKey,
+        encryptionCipher: await _cipher(customCipher),
+      );
+    } catch (_) {
+      await Hive.deleteBoxFromDisk(newCacheBoxKey);
+      if (customCipher == null) {
+        await SecureStorage.i.delete(newEncryptionBoxKey);
+      }
+      _cacheBox = await Hive.openBox<dynamic>(
+        newCacheBoxKey,
+        encryptionCipher: await _cipher(customCipher),
+      );
+    }
   }
 }
